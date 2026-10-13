@@ -1,6 +1,7 @@
 import { todayKst, type Task, type WorkLog, type WorkLogInput } from '@kingtepad/shared';
 import { useState, type FormEvent } from 'react';
 import { createLog, updateLog } from '../lib/db';
+import { notifyChanged } from '../lib/useAsync';
 import { MarkdownEditor } from './Markdown';
 import { Sheet } from './Sheet';
 
@@ -37,6 +38,7 @@ export function LogForm({
       const input = { ...form, progress: form.task_id ? form.progress : null };
       if (log) await updateLog(log.id, input);
       else await createLog(input);
+      notifyChanged();
       onSaved();
     } catch (err) {
       setError((err as Error).message);

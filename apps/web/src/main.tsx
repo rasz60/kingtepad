@@ -9,6 +9,7 @@ import { Settings } from './pages/Settings';
 import { TaskDetail } from './pages/TaskDetail';
 import { Tasks } from './pages/Tasks';
 import { Today } from './pages/Today';
+import 'galmuri/dist/galmuri.css';
 import './styles.css';
 
 createRoot(document.getElementById('root')!).render(

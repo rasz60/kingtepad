@@ -7,15 +7,16 @@ import {
   todayKst,
   type WorkLog,
 } from '@kingtepad/shared';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { LogForm } from '../components/LogForm';
 import { Markdown } from '../components/Markdown';
+import { Empty, Pixel } from '../components/Pixel';
 import { ProgressBar, StatusBadge } from '../components/StatusBadge';
 import { TaskForm } from '../components/TaskForm';
 import { useApp } from '../lib/AppContext';
 import { deleteLog, getTask, listLogs, purgeTask, restoreTask, trashTask } from '../lib/db';
-import { useAsync } from '../lib/useAsync';
+import { notifyChanged, useAsync } from '../lib/useAsync';
 
 export function TaskDetail() {
   const { id = '' } = useParams();
@@ -26,9 +27,9 @@ export function TaskDetail() {
   const [editing, setEditing] = useState(false);
   const [logForm, setLogForm] = useState<{ log?: WorkLog } | null>(null);
 
-  if (task.error) return <div className="page"><p className="error">업무를 찾을 수 없습니다.</p></div>;
+  if (task.error) return <div className="doc"><Empty>업무를 찾을 수 없어요</Empty></div>;
   const t = task.data;
-  if (!t) return <div className="page"><p className="muted">불러오는 중…</p></div>;
+  if (!t) return <div className="doc"><p className="ln comment">// 불러오는 중…</p></div>;
 
   const today = todayKst();
   const expected = expectedProgress(t.planned_start, t.planned_end, today, holidays);
@@ -36,154 +37,134 @@ export function TaskDetail() {
   const plannedDays = countWorkdays(t.planned_start, t.planned_end, holidays);
   const cat = categoryById(t.category_id);
 
-  const reloadAll = () => {
-    task.reload();
-    logs.reload();
-  };
-
   async function act(fn: () => Promise<unknown>, confirmMsg: string, after?: () => void) {
     if (!window.confirm(confirmMsg)) return;
     await fn();
-    after ? after() : reloadAll();
+    notifyChanged();
+    after?.();
   }
 
   return (
-    <div className="page">
-      <Link to="/tasks" className="back">
-        ← 업무 목록
-      </Link>
-      <header className="page-header">
-        <h1>{t.title}</h1>
-        <StatusBadge status={taskStatus(t, today, holidays)} />
-      </header>
+    <div className="doc">
+      <p className="ln">
+        <Link to="/tasks" className="comment">
+          ← 업무 목록
+        </Link>
+      </p>
+      <h1 className="ln h1">
+        <span className="op"># </span>
+        {t.title} <StatusBadge status={taskStatus(t, today, holidays)} />
+      </h1>
 
-      <div className="card detail-grid">
-        <div>
-          <span className="label">카테고리</span>
-          <span>
-            <span className="dot" style={{ background: cat?.color ?? '#94a3b8' }} /> {cat?.name ?? '미분류'}
-          </span>
-        </div>
-        <div>
-          <span className="label">예정 기간</span>
-          <span>
-            {t.planned_start} ~ {t.planned_end} <span className="muted">({plannedDays}영업일)</span>
-          </span>
-        </div>
-        <div>
-          <span className="label">실제 기간</span>
-          <span>
-            {t.actual_start ?? '-'} ~ {t.actual_end ?? (t.actual_start ? '진행 중' : '-')}
-          </span>
-        </div>
-        <div>
-          <span className="label">투입 공수</span>
-          <span>
-            {formatMinutes(totalMinutes)} <span className="muted">({minutesToMD(totalMinutes)} MD)</span>
-          </span>
-        </div>
-        <div className="span-all">
-          <span className="label">
-            진척 {t.progress}% <span className="muted">/ 예상 {expected ?? 0}%</span>
-          </span>
-          <ProgressBar value={t.progress} expected={expected} />
-        </div>
-        {t.tags.length > 0 && (
-          <div className="span-all tags">
-            {t.tags.map((tag) => (
-              <span key={tag} className="tag">
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+      <p className="ln op">---</p>
+      <Prop k="카테고리">
+        <span className="kw">
+          <i className="swatch" style={{ background: cat?.color ?? '#94a3b8' }} />
+          {cat?.name ?? '미분류'}
+        </span>
+      </Prop>
+      <Prop k="예정 기간">
+        <span className="num">
+          {t.planned_start} ~ {t.planned_end}
+        </span>{' '}
+        <span className="comment">// {plannedDays}영업일</span>
+      </Prop>
+      <Prop k="실제 기간">
+        <span className="num">
+          {t.actual_start ?? '-'} ~ {t.actual_end ?? (t.actual_start ? '진행 중' : '-')}
+        </span>
+      </Prop>
+      <Prop k="투입 공수">
+        <span className="dur">{formatMinutes(totalMinutes)}</span>{' '}
+        <span className="comment">// {minutesToMD(totalMinutes)} MD</span>
+      </Prop>
+      <Prop k="진척">
+        <ProgressBar value={t.progress} expected={expected} /> <span className="num">{t.progress}%</span>{' '}
+        <span className="comment">// 예상 {expected ?? 0}%</span>
+      </Prop>
+      {t.tags.length > 0 && (
+        <Prop k="태그">
+          {t.tags.map((tag, i) => (
+            <span key={tag} className="str">
+              {i > 0 && ', '}"{tag}"
+            </span>
+          ))}
+        </Prop>
+      )}
+      <p className="ln op">---</p>
 
-      <div className="actions">
+      <div className="ln actions">
         {t.deleted_at ? (
           <>
             <button className="btn-ghost" onClick={() => act(() => restoreTask(t.id), '업무를 복원할까요?')}>
-              복원
+              <Pixel name="undo" /> 복원
             </button>
             <button
               className="btn-danger"
-              onClick={() => act(() => purgeTask(t.id), '영구 삭제하면 일지도 함께 삭제됩니다. 계속할까요?', () => navigate('/tasks?trash=1'))}
+              onClick={() =>
+                act(() => purgeTask(t.id), '영구 삭제하면 일지도 함께 삭제돼요. 계속할까요?', () => navigate('/tasks?trash=1'))
+              }
             >
-              영구 삭제
+              <Pixel name="trash" /> 영구 삭제
             </button>
           </>
         ) : (
           <>
+            <button className="btn-primary" onClick={() => setLogForm({})}>
+              <Pixel name="pencil" /> 일지 쓰기
+            </button>
             <button className="btn-ghost" onClick={() => setEditing(true)}>
-              수정
+              <Pixel name="doc" /> 수정
             </button>
             <button className="btn-danger" onClick={() => act(() => trashTask(t.id), '휴지통으로 옮길까요?', () => navigate('/tasks'))}>
-              삭제
-            </button>
-            <button className="btn-primary" onClick={() => setLogForm({})}>
-              + 일지
+              <Pixel name="trash" /> 삭제
             </button>
           </>
         )}
       </div>
 
-      <section>
-        <h2 className="section-title">업무 설명</h2>
-        <div className="card">
-          <Markdown source={t.description} />
+      <h2 className="ln comment section">// 업무 설명</h2>
+      <div className="ln">
+        <Markdown source={t.description} empty="(설명 없음)" />
+      </div>
+
+      <h2 className="ln comment section">
+        // 일지 <span className="num">({logs.data?.length ?? 0})</span>
+      </h2>
+      {logs.data?.length === 0 && <Empty>첫 일지를 써 볼까요?</Empty>}
+      {(logs.data ?? []).map((l) => (
+        <div key={l.id} className="ln log-line">
+          <div className="log-head">
+            <span className="num">{l.log_date}</span>
+            <span className="dur">{formatMinutes(l.minutes)}</span>
+            {l.progress != null && <span className="num">→ {l.progress}%</span>}
+            {!t.deleted_at && (
+              <span className="log-actions">
+                <button className="link-btn" onClick={() => setLogForm({ log: l })}>
+                  수정
+                </button>
+                <button className="link-btn danger" onClick={() => act(() => deleteLog(l.id), '일지를 삭제할까요?')}>
+                  삭제
+                </button>
+              </span>
+            )}
+          </div>
+          <Markdown source={l.content} />
         </div>
-      </section>
+      ))}
 
-      <section>
-        <h2 className="section-title">
-          일지 <span className="muted">{logs.data?.length ?? 0}</span>
-        </h2>
-        {logs.data?.length === 0 && <p className="muted empty">아직 일지가 없어요.</p>}
-        <ol className="timeline">
-          {(logs.data ?? []).map((l) => (
-            <li key={l.id} className="card log-item">
-              <div className="log-meta">
-                <strong>{l.log_date}</strong>
-                <span className="muted">{formatMinutes(l.minutes)}</span>
-                {l.progress != null && <span className="muted">→ {l.progress}%</span>}
-                {!t.deleted_at && (
-                  <span className="log-actions">
-                    <button className="link-btn" onClick={() => setLogForm({ log: l })}>
-                      수정
-                    </button>
-                    <button className="link-btn" onClick={() => act(() => deleteLog(l.id), '일지를 삭제할까요?')}>
-                      삭제
-                    </button>
-                  </span>
-                )}
-              </div>
-              <Markdown source={l.content} />
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      {editing && (
-        <TaskForm
-          task={t}
-          onClose={() => setEditing(false)}
-          onSaved={() => {
-            setEditing(false);
-            reloadAll();
-          }}
-        />
-      )}
-      {logForm && (
-        <LogForm
-          task={t}
-          log={logForm.log}
-          onClose={() => setLogForm(null)}
-          onSaved={() => {
-            setLogForm(null);
-            reloadAll();
-          }}
-        />
-      )}
+      {editing && <TaskForm task={t} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} />}
+      {logForm && <LogForm task={t} log={logForm.log} onClose={() => setLogForm(null)} onSaved={() => setLogForm(null)} />}
     </div>
+  );
+}
+
+function Prop({ k, children }: { k: string; children: ReactNode }) {
+  return (
+    <p className="ln prop">
+      <span className="type">{k}</span>
+      <span className="op">: </span>
+      <span className="prop-val">{children}</span>
+    </p>
   );
 }

@@ -2,6 +2,7 @@ import { todayKst, type Task, type TaskInput } from '@kingtepad/shared';
 import { useState, type FormEvent } from 'react';
 import { useApp } from '../lib/AppContext';
 import { createTask, updateTask } from '../lib/db';
+import { notifyChanged } from '../lib/useAsync';
 import { MarkdownEditor } from './Markdown';
 import { Sheet } from './Sheet';
 
@@ -34,6 +35,7 @@ export function TaskForm({ task, onClose, onSaved }: { task?: Task; onClose: () 
     try {
       const input = { ...form, title: form.title.trim(), tags };
       const saved = task ? await updateTask(task.id, input) : await createTask(input);
+      notifyChanged();
       onSaved(saved);
     } catch (err) {
       setError((err as Error).message);
@@ -70,7 +72,7 @@ export function TaskForm({ task, onClose, onSaved }: { task?: Task; onClose: () 
           </label>
         </div>
         <label>
-          태그 <span className="muted">(쉼표로 구분)</span>
+          <span>태그 (쉼표로 구분)</span>
           <input value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder="예: 고객사A, 긴급" />
         </label>
         <label className="block-label">업무 설명</label>

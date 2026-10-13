@@ -15,8 +15,8 @@ export default defineConfig({
         lang: 'ko',
         start_url: '/',
         display: 'standalone',
-        background_color: '#f6f7f9',
-        theme_color: '#1f2937',
+        background_color: '#f0f0f0',
+        theme_color: '#ffffff',
         icons: [
           { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png' },
           { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png' },
@@ -28,6 +28,14 @@ export default defineConfig({
         navigateFallback: '/index.html',
         // Supabase API 응답은 캐시하지 않음 (항상 최신 데이터)
         navigateFallbackDenylist: [/^\/api\//],
+        // 픽셀 폰트는 처음 쓸 때 캐시 (오프라인에서도 폰트 유지)
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.destination === 'font',
+            handler: 'CacheFirst',
+            options: { cacheName: 'fonts', expiration: { maxEntries: 20 } },
+          },
+        ],
       },
     }),
   ],

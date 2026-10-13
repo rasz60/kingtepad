@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../lib/AppContext';
 import { ProgressBar, StatusBadge } from './StatusBadge';
 
+/** 편집기 한 줄처럼 보이는 업무 행 */
 export function TaskRow({ task }: { task: Task }) {
   const { holidays, categoryById } = useApp();
   const today = todayKst();
@@ -10,25 +11,25 @@ export function TaskRow({ task }: { task: Task }) {
   const expected = expectedProgress(task.planned_start, task.planned_end, today, holidays);
 
   return (
-    <Link to={`/tasks/${task.id}`} className="card task-row">
-      <span className="dot" style={{ background: cat?.color ?? '#94a3b8' }} title={cat?.name ?? '미분류'} />
-      <span className="task-title">
-        {task.title}
-        {task.tags.length > 0 && (
-          <span className="tags">
-            {task.tags.map((t) => (
-              <span key={t} className="tag">
-                {t}
-              </span>
-            ))}
+    <Link to={`/tasks/${task.id}`} className="ln task-line">
+      <StatusBadge status={taskStatus(task, today, holidays)} />
+      <span className="task-main">
+        <span className="kw">
+          <i className="swatch" style={{ background: cat?.color ?? '#94a3b8' }} />
+          {cat?.name ?? '미분류'}
+        </span>{' '}
+        <span className="task-title">{task.title}</span>
+        {task.tags.map((t) => (
+          <span key={t} className="str">
+            {' '}"{t}"
           </span>
-        )}
+        ))}
       </span>
-      <span className="muted task-period">
-        {task.planned_start.slice(5)} ~ {task.planned_end.slice(5)}
+      <span className="num task-period">
+        {task.planned_start.slice(5)}~{task.planned_end.slice(5)}
       </span>
       <ProgressBar value={task.progress} expected={expected} />
-      <StatusBadge status={taskStatus(task, today, holidays)} />
+      <span className="num task-pct">{task.progress}%</span>
     </Link>
   );
 }

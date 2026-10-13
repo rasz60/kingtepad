@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
+import { Pixel } from './Pixel';
 
-/** 데스크톱은 가운데 모달, 모바일은 하단 시트 */
+/** Windows 대화상자 스타일. 모바일에서는 하단 시트 */
 export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -9,15 +10,16 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   }, [onClose]);
 
   return (
-    <div className="sheet-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title}>
-        <header className="sheet-header">
+    <div className="dialog-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="dialog" role="dialog" aria-modal="true" aria-label={title}>
+        <header className="dialog-title">
+          <Pixel name="pencil" scale={1.2} />
           <h2>{title}</h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="닫기">
-            ×
+          <button type="button" className="dialog-close" onClick={onClose} aria-label="닫기">
+            <Pixel name="close" scale={1.2} />
           </button>
         </header>
-        <div className="sheet-body">{children}</div>
+        <div className="dialog-body">{children}</div>
       </div>
     </div>
   );
