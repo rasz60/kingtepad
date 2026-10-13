@@ -1,0 +1,19 @@
+{
+  "name": "kingtepad",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @kingtepad/web",
+    "dev:api": "npm run dev -w @kingtepad/api",
+    "build": "npm run build -w @kingtepad/web && npm run build -w @kingtepad/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test -w @kingtepad/shared"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
