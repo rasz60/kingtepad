@@ -123,21 +123,23 @@ export function TaskDetail() {
         )}
       </div>
 
-      <h2 className="ln comment section">// 업무 설명</h2>
+      <h2 className="ln section"><span className="op">## </span>업무 설명</h2>
       <div className="ln">
         <Markdown source={t.description} empty="(설명 없음)" />
       </div>
 
-      <h2 className="ln comment section">
-        // 일지 <span className="num">({logs.data?.length ?? 0})</span>
+      <h2 className="ln section">
+        <span className="op">## </span>일지 <span className="num">({logs.data?.length ?? 0})</span>
       </h2>
       {logs.data?.length === 0 && <Empty>첫 일지를 써 볼까요?</Empty>}
       {(logs.data ?? []).map((l) => (
         <div key={l.id} className="ln log-line">
           <div className="log-head">
-            <span className="num">{l.log_date}</span>
-            <span className="dur">{formatMinutes(l.minutes)}</span>
-            {l.progress != null && <span className="num">→ {l.progress}%</span>}
+            <span className="num log-title">{l.log_date}</span>
+            <span className="log-meta">
+              <span className="dur">{formatMinutes(l.minutes)}</span>
+              {l.progress != null && <span className="num">→ {l.progress}%</span>}
+            </span>
             {!t.deleted_at && (
               <span className="log-actions">
                 <button className="link-btn" onClick={() => setLogForm({ log: l })}>

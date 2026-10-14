@@ -4,15 +4,20 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { listLogs, listTasks } from '../lib/db';
 import { useAsync } from '../lib/useAsync';
 import { LogForm } from './LogForm';
+import { NotificationCenter } from './Notifications';
 import { Pixel, type PixelName } from './Pixel';
 import { TaskForm } from './TaskForm';
 
-const TABS: { to: string; file: string; icon: PixelName }[] = [
-  { to: '/', file: '오늘.log', icon: 'sun' },
-  { to: '/tasks', file: '업무.txt', icon: 'doc' },
-  { to: '/reports', file: '보고서.md', icon: 'chart' },
-  { to: '/settings', file: '설정.ini', icon: 'gear' },
+// short = 모바일 하단 탭에 아이콘과 함께 보이는 이름
+const TABS: { to: string; file: string; short: string; icon: PixelName }[] = [
+  { to: '/', file: '오늘.log', short: '오늘', icon: 'sun' },
+  { to: '/tasks', file: '업무.txt', short: '업무', icon: 'doc' },
+  { to: '/calendar', file: '캘린더.ics', short: '캘린더', icon: 'calendar' },
+  { to: '/reports', file: '보고서.md', short: '보고서', icon: 'chart' },
+  { to: '/settings', file: '설정.ini', short: '설정', icon: 'gear' },
 ];
+
+const FILE_TYPE: Record<string, string> = { md: 'Markdown', ini: 'MS ini file', ics: 'iCalendar file' };
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -55,7 +60,7 @@ export function Layout() {
   return (
     <div className="window">
       <header className="titlebar">
-        <Pixel name="cat" scale={1.4} />
+        <Pixel name="turtle" scale={1.4} />
         <span className="titlebar-text">
           {tab.file} - 업무일지++
         </span>
@@ -83,13 +88,15 @@ export function Layout() {
         <span className="tool-date">
           {today} ({dow})
         </span>
+        <NotificationCenter />
       </div>
 
       <nav className="tabs">
         {TABS.map((t) => (
-          <NavLink key={t.to} to={t.to} end={t.to === '/'} className="tab">
+          <NavLink key={t.to} to={t.to} end={t.to === '/'} className="tab" aria-label={t.short}>
             <Pixel name={t.icon} scale={1.2} />
-            <span>{t.file}</span>
+            <span className="tab-file">{t.file}</span>
+            <span className="tab-short">{t.short}</span>
           </NavLink>
         ))}
       </nav>
@@ -99,7 +106,7 @@ export function Layout() {
       </main>
 
       <footer className="statusbar">
-        <span className="sb-grow">{tab.file.endsWith('.md') ? 'Markdown' : tab.file.endsWith('.ini') ? 'MS ini file' : 'Normal text file'}</span>
+        <span className="sb-grow">{FILE_TYPE[tab.file.split('.').pop()!] ?? 'Normal text file'}</span>
         <span>오늘 투입: {formatMinutes(todayMinutes)}</span>
         <span className="sb-hide">일지 {todayLogs.data?.length ?? 0}개</span>
         <span className="sb-hide">Asia/Seoul</span>

@@ -1,5 +1,6 @@
 import type { Category } from '@kingtepad/shared';
 import { useState } from 'react';
+import { PushToggle } from '../components/Notifications';
 import { useApp } from '../lib/AppContext';
 import { deleteCategory, saveCategory } from '../lib/db';
 import { supabase } from '../lib/supabase';
@@ -87,6 +88,15 @@ export function Settings() {
         </button>
       </div>
       {error && <p className="ln error">{error}</p>}
+
+      <p className="ln">&nbsp;</p>
+      <p className="ln ini-section">[알림]</p>
+      <p className="ln comment">; 일정·업무 알람, 지연 업무, 내일 마감 업무 (매일 09시)</p>
+      <div className="ln ini-row">
+        <span className="type ini-key">push</span>
+        <span className="op">=</span>
+        <PushToggle />
+      </div>
 
       <p className="ln">&nbsp;</p>
       <p className="ln ini-section">[계정]</p>

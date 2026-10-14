@@ -28,6 +28,8 @@ export default defineConfig({
         navigateFallback: '/index.html',
         // Supabase API 응답은 캐시하지 않음 (항상 최신 데이터)
         navigateFallbackDenylist: [/^\/api\//],
+        // 웹 푸시 수신 핸들러 (public/push-sw.js)
+        importScripts: ['push-sw.js'],
         // 픽셀 폰트는 처음 쓸 때 캐시 (오프라인에서도 폰트 유지)
         runtimeCaching: [
           {

@@ -25,7 +25,7 @@ export function Login() {
         </header>
         <form className="dialog-body form" onSubmit={submit}>
           <div className="login-hello">
-            <Pixel name="cat" scale={4} />
+            <Pixel name="turtle" scale={4} />
             <p>
               오늘도 수고했어요!
               <br />

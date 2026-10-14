@@ -68,7 +68,7 @@ export function Tasks() {
           <input type="search" placeholder="제목·내용" value={qInput} onChange={(e) => setQInput(e.target.value)} />
         </label>
         <button type="button" className="btn-ghost find-toggle" onClick={() => setMoreFilters((v) => !v)}>
-          {moreFilters ? '조건 ▲' : '조건 ▼'}
+          {moreFilters ? '상세 조건 ▲' : '상세 조건 ▼'}
         </button>
         <label className="find-extra">
           기간:

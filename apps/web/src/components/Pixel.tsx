@@ -14,6 +14,9 @@ const PALETTE: Record<string, string> = {
   b: '#4d8dff',
   l: '#a8d4ff',
   s: '#9aa3ae',
+  d: '#1f8a4c',
+  e: '#a8e07a',
+  m: '#f6dfb8',
 };
 
 const ICONS = {
@@ -43,6 +46,30 @@ const ICONS = {
     'kwbbbbwwwk',
     'kwwwwwwwwk',
     'kkkkkkkkkk',
+  ],
+  bell: [
+    '....k....',
+    '...kyk...',
+    '..kyyyk..',
+    '..kyyyk..',
+    '.kyyyyyk.',
+    '.kyyyyyk.',
+    'kyyyyyyyk',
+    'kkkkkkkkk',
+    '...kok...',
+  ],
+  calendar: [
+    '..k.....k..',
+    'kkkkkkkkkkk',
+    'krrrrrrrrrk',
+    'krrrrrrrrrk',
+    'kkkkkkkkkkk',
+    'kwwwwwwwwwk',
+    'kwswswswswk',
+    'kwwwwwwwwwk',
+    'kwswswbwswk',
+    'kwwwwwwwwwk',
+    'kkkkkkkkkkk',
   ],
   chart: [
     'k..........',
@@ -158,18 +185,15 @@ const ICONS = {
     'kwwwwk....',
     'kkkkkk....',
   ],
-  cat: [
-    '.k.........k.',
-    '.kk.......kk.',
-    '.kpk.....kpk.',
-    '.kwwkkkkkwwk.',
-    'kwwwwwwwwwwwk',
-    'kwwkwwwwwkwwk',
-    'kwwkwwwwwkwwk',
-    'kwpwwwkwwwpwk',
-    'kwwwwkwkwwwwk',
-    '.kwwwwwwwwwk.',
-    '..kkkkkkkkk..',
+  turtle: [
+    '..kkkkkkk......',
+    '.kgdgggdgk.kkk.',
+    'kgdgdgdgdgkekek',
+    'kggdgggdggkeeek',
+    'kkkkkkkkkkkkkk.',
+    '.kmmmmmmmmmk...',
+    '.kek.....kek...',
+    '.kkk.....kkk...',
   ],
 } as const;
 
@@ -201,11 +225,11 @@ export function Pixel({ name, scale = 1.5, className }: { name: PixelName; scale
   );
 }
 
-/** 빈 상태: 픽셀 고양이 + 말풍선 */
+/** 빈 상태: 픽셀 거북이 + 말풍선 */
 export function Empty({ children }: { children: string }) {
   return (
     <div className="ln empty">
-      <Pixel name="cat" scale={2} />
+      <Pixel name="turtle" scale={2} />
       <span className="bubble">{children}</span>
     </div>
   );

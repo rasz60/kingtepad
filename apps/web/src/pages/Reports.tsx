@@ -9,6 +9,7 @@ import {
 } from '@kingtepad/shared';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Markdown } from '../components/Markdown';
 import { Empty, Pixel } from '../components/Pixel';
 import { useApp } from '../lib/AppContext';
 import { listLogs, listTasks } from '../lib/db';
@@ -25,6 +26,7 @@ export function Reports() {
   }, [weekStart]);
 
   const [copied, setCopied] = useState(false);
+  const [raw, setRaw] = useState(false);
 
   if (!data.data) return <div className="doc"><p className="ln comment">// 불러오는 중…</p></div>;
   const { logs, tasks } = data.data;
@@ -75,7 +77,7 @@ export function Reports() {
         </div>
       </div>
 
-      <h2 className="ln comment section">// 카테고리별 투입 시간</h2>
+      <h2 className="ln section"><span className="op">## </span>카테고리별 투입 시간</h2>
       {summary.byCategory.length === 0 && <Empty>이번 주 기록이 없어요</Empty>}
       {summary.byCategory.map((c) => (
         <div key={c.name} className="ln bar-line" title={`${c.name}: ${formatMinutes(c.minutes)}`}>
@@ -90,7 +92,7 @@ export function Reports() {
         </div>
       ))}
 
-      <h2 className="ln comment section">// 업무별</h2>
+      <h2 className="ln section"><span className="op">## </span>업무별</h2>
       {summary.byTask.map(({ task, minutes, logs }) => (
         <p key={task?.id ?? '_none'} className="ln task-summary">
           {task ? (
@@ -108,8 +110,16 @@ export function Reports() {
         </p>
       ))}
 
-      <h2 className="ln comment section">// 보고서 원문 (업무보고_{weekStart}.md)</h2>
+      <h2 className="ln section"><span className="op">## </span>보고서 (업무보고_{weekStart}.md)</h2>
       <div className="ln actions">
+        <span className="seg" role="tablist" aria-label="보고서 보기">
+          <button role="tab" aria-selected={!raw} className={`seg-btn ${!raw ? 'active' : ''}`} onClick={() => setRaw(false)}>
+            미리보기
+          </button>
+          <button role="tab" aria-selected={raw} className={`seg-btn ${raw ? 'active' : ''}`} onClick={() => setRaw(true)}>
+            원문
+          </button>
+        </span>
         <button className="btn-primary" onClick={copy}>
           <Pixel name="copy" /> {copied ? '복사됨!' : '마크다운 복사'}
         </button>
@@ -117,9 +127,13 @@ export function Reports() {
           <Pixel name="floppy" /> .md 저장
         </button>
       </div>
-      {markdown.trimEnd().split('\n').map((line, i) => (
-        <MdLine key={i} line={line} />
-      ))}
+      {raw ? (
+        markdown.trimEnd().split('\n').map((line, i) => <MdLine key={i} line={line} />)
+      ) : (
+        <div className="ln report-doc">
+          <Markdown source={markdown} />
+        </div>
+      )}
     </div>
   );
 }

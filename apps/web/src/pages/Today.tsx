@@ -1,11 +1,12 @@
-import { formatMinutes, parseQuickEntry, taskStatus, todayKst, type Task } from '@kingtepad/shared';
+import { formatMinutes, parseQuickEntry, taskStatus, todayKst, type Task, type WorkLog } from '@kingtepad/shared';
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { LogForm } from '../components/LogForm';
 import { Markdown } from '../components/Markdown';
 import { Empty } from '../components/Pixel';
 import { TaskRow } from '../components/TaskRow';
 import { useApp } from '../lib/AppContext';
-import { createLog, createTask, listLogs, listTasks } from '../lib/db';
+import { createLog, createTask, deleteLog, listLogs, listTasks } from '../lib/db';
 import { notifyChanged, useAsync } from '../lib/useAsync';
 
 export function Today() {
@@ -21,6 +22,20 @@ export function Today() {
   const todayLogs = logs.data ?? [];
   const todayMinutes = todayLogs.reduce((s, l) => s + l.minutes, 0);
   const taskTitle = (id: string | null) => tasks.data?.find((t) => t.id === id)?.title ?? '일반 기록';
+
+  // ── 오늘 기록 수정/삭제 ───────────────
+  const [editingLog, setEditingLog] = useState<WorkLog | null>(null);
+  // 완료된 업무에 붙은 기록도 수정할 수 있도록 해당 업무를 선택지에 포함
+  const editTasks = (log: WorkLog) => {
+    const own = tasks.data?.find((t) => t.id === log.task_id);
+    return own && !active.includes(own) ? [own, ...active] : active;
+  };
+
+  async function removeLog(id: string) {
+    if (!window.confirm('일지를 삭제할까요?')) return;
+    await deleteLog(id);
+    notifyChanged();
+  }
 
   // ── 빠른 입력 ─────────────────────────
   const [quick, setQuick] = useState('');
@@ -44,6 +59,7 @@ export function Today() {
           planned_end: today,
           description: '',
           tags: [],
+          alarms: [],
         });
         taskId = created.id;
       }
@@ -109,26 +125,45 @@ export function Today() {
       <TaskSection title="지연된 업무" tasks={delayed} empty="지연된 업무가 없어요!" />
       <TaskSection title="진행 중인 업무" tasks={ongoing} empty="진행 중인 업무가 없어요." />
 
-      <h2 className="ln comment section">
-        // 오늘 기록 <span className="dur">{formatMinutes(todayMinutes)}</span>
+      <h2 className="ln section">
+        <span className="op">## </span>오늘 기록 <span className="dur">{formatMinutes(todayMinutes)}</span>
       </h2>
       {logs.data && todayLogs.length === 0 && <Empty>아직 오늘 기록이 없어요</Empty>}
       {todayLogs.map((l) => (
         <div key={l.id} className="ln log-line">
           <div className="log-head">
             {l.task_id ? (
-              <Link to={`/tasks/${l.task_id}`} className="kw">
+              <Link to={`/tasks/${l.task_id}`} className="kw log-title">
                 {taskTitle(l.task_id)}
               </Link>
             ) : (
-              <span className="str">일반 기록</span>
+              <span className="str log-title">일반 기록</span>
             )}
-            <span className="dur">{formatMinutes(l.minutes)}</span>
-            {l.progress != null && <span className="num">→ {l.progress}%</span>}
+            <span className="log-meta">
+              <span className="dur">{formatMinutes(l.minutes)}</span>
+              {l.progress != null && <span className="num">→ {l.progress}%</span>}
+            </span>
+            <span className="log-actions">
+              <button className="link-btn" onClick={() => setEditingLog(l)}>
+                수정
+              </button>
+              <button className="link-btn danger" onClick={() => removeLog(l.id)}>
+                삭제
+              </button>
+            </span>
           </div>
           <Markdown source={l.content} />
         </div>
       ))}
+
+      {editingLog && (
+        <LogForm
+          log={editingLog}
+          tasks={editTasks(editingLog)}
+          onClose={() => setEditingLog(null)}
+          onSaved={() => setEditingLog(null)}
+        />
+      )}
     </div>
   );
 }
@@ -136,8 +171,8 @@ export function Today() {
 function TaskSection({ title, tasks, empty }: { title: string; tasks: Task[]; empty: string }) {
   return (
     <>
-      <h2 className="ln comment section">
-        // {title} <span className="num">({tasks.length})</span>
+      <h2 className="ln section">
+        <span className="op">## </span>{title} <span className="num">({tasks.length})</span>
       </h2>
       {tasks.length === 0 ? <Empty>{empty}</Empty> : tasks.map((t) => <TaskRow key={t.id} task={t} />)}
     </>

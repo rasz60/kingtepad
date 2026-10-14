@@ -4,6 +4,7 @@ import { useApp } from '../lib/AppContext';
 import { createTask, updateTask } from '../lib/db';
 import { notifyChanged } from '../lib/useAsync';
 import { MarkdownEditor } from './Markdown';
+import { AlarmPicker } from './AlarmPicker';
 import { Sheet } from './Sheet';
 
 export function TaskForm({ task, onClose, onSaved }: { task?: Task; onClose: () => void; onSaved: (t: Task) => void }) {
@@ -16,6 +17,7 @@ export function TaskForm({ task, onClose, onSaved }: { task?: Task; onClose: () 
     planned_end: task?.planned_end ?? today,
     description: task?.description ?? '',
     tags: task?.tags ?? [],
+    alarms: task?.alarms ?? [],
   });
   const [tagText, setTagText] = useState((task?.tags ?? []).join(', '));
   const [saving, setSaving] = useState(false);
@@ -75,6 +77,7 @@ export function TaskForm({ task, onClose, onSaved }: { task?: Task; onClose: () 
           <span>태그 (쉼표로 구분)</span>
           <input value={tagText} onChange={(e) => setTagText(e.target.value)} placeholder="예: 고객사A, 긴급" />
         </label>
+        <AlarmPicker value={form.alarms} onChange={(v) => set('alarms', v)} hint="시작예정일 09:00 기준" />
         <label className="block-label">업무 설명</label>
         <MarkdownEditor value={form.description} onChange={(v) => set('description', v)} />
         {error && <p className="error">{error}</p>}
