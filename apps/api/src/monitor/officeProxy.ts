@@ -5,7 +5,7 @@
 import http from 'node:http';
 import type { FastifyBaseLogger } from 'fastify';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { injectTouchSupport } from './officeTouch';
+import { injectOfficeScripts } from './officeScripts';
 import { sessionUser } from './session';
 
 const DENIED = '업무일지++ 의 에이전트.exe 탭에서 열어 주세요.';
@@ -28,10 +28,13 @@ async function serveIndex(targetPort: number, url: string, res: http.ServerRespo
     'Content-Type': upstream.headers.get('content-type') ?? 'text/html; charset=utf-8',
     'Cache-Control': 'no-cache', // 내용을 바꿔 보내므로 원본 ETag/Last-Modified 는 쓰지 않는다
   });
-  res.end(upstream.ok ? injectTouchSupport(html) : html);
+  res.end(upstream.ok ? injectOfficeScripts(html) : html);
 }
 
-export function startOfficeProxy(listenPort: number, host: string, targetPort: number, log: FastifyBaseLogger) {
+/** 쉬는 캐릭터 라벨: 오피스 이름 → 문구 (예: { 삼성전자: '퇴근했습니다!😁' }) */
+export type OfficeLabels = () => Record<string, string>;
+
+export function startOfficeProxy(listenPort: number, host: string, targetPort: number, log: FastifyBaseLogger, labels: OfficeLabels) {
   const proxy = createProxyMiddleware({ target: `http://127.0.0.1:${targetPort}`, changeOrigin: true });
 
   const server = http.createServer((req, res) => {
@@ -39,8 +42,15 @@ export function startOfficeProxy(listenPort: number, host: string, targetPort: n
       res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
       return res.end(DENIED);
     }
-    // 화면 HTML 에만 터치 지원 스크립트를 넣는다. 나머지(에셋·API)는 그대로 중계
     const path = req.url?.split('?')[0];
+    if (req.method === 'GET' && path === '/__kt/labels') {
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+      });
+      return res.end(JSON.stringify(labels()));
+    }
+    // 화면 HTML 에만 터치·라벨 스크립트를 넣는다. 나머지(에셋·API)는 그대로 중계
     if (req.method === 'GET' && (path === '/' || path === '/index.html')) {
       serveIndex(targetPort, req.url!, res).catch((err) => {
         log.warn({ err }, '픽셀 오피스 index.html 중계 실패');

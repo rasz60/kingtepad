@@ -50,11 +50,13 @@ def load_stocks():
 
 
 STOCKS = load_stocks()
+STOCK_NAMES = {s.AGENT_ID: s.STOCK_NAME for s in STOCKS}
 
 # ==========================================
 # 2. 공용 설정
 # ==========================================
 POLL_INTERVAL = 6.0  # 종목 전체를 한 바퀴 도는 주기(초). 종목이 늘어나면 호출 빈도가 자동으로 분산됨.
+OFF_DUTY_LABEL = "퇴근했습니다!😁"  # 장 밖에서 쉬는 캐릭터 라벨 문구
 CLOSED_CHECK_INTERVAL = 60.0  # 장 밖에서 장이 열렸는지 다시 확인하는 주기(초)
 HOLIDAY_RETRY_SEC = 600  # 휴장일 조회가 실패했을 때 다시 시도하기까지(초). 그동안은 평일=개장으로 본다
 ALERT_STEP = 5.0  # 몇 %p 단위로 급등/급락 알람을 띄울지 (5% 단위 -> ±5, ±10, ±15, ...)
@@ -78,8 +80,9 @@ _trading_day = {"date": None, "open": True, "retry_at": 0.0}
 # ==========================================
 # 3. Helper 함수: 에이전트 모니터(kingtepad API)로 상태 전송
 # ==========================================
-def update_pixel_agent(agent_id, status, message):
-    post_status(agent_id, status, message)
+def update_pixel_agent(agent_id, status, message, label=None):
+    # 캐릭터 라벨 이름은 종목명 (stocks.json 의 name)
+    return post_status(agent_id, status, message, name=STOCK_NAMES.get(agent_id), label=label)
 
 
 def is_market_open():
@@ -269,9 +272,10 @@ def announce_close():
             print(f"[{stock.STOCK_NAME}] 종가 조회 에러: {e}")
             closing = last_status_text.get(stock.AGENT_ID)
         message = f"🔔 장 마감 — {closing}" if closing else f"🔔 장 마감 — {stock.STOCK_NAME}"
-        agent_states[stock.AGENT_ID] = "IDLE"
         print(f"[{stock.STOCK_NAME}] {message}")
-        update_pixel_agent(stock.AGENT_ID, "IDLE", f"{message} · 다음 개장 때 다시 출근할게요 💤")
+        # 못 보냈으면(API 재시작 중 등) 다음 확인 때(1분 뒤) 다시 보낸다. 안 그러면 다음 개장까지 캐릭터가 안 나온다
+        if update_pixel_agent(stock.AGENT_ID, "IDLE", f"{message} · 다음 개장 때 다시 출근할게요 💤", label=OFF_DUTY_LABEL):
+            agent_states[stock.AGENT_ID] = "IDLE"
         time.sleep(max(POLL_INTERVAL / len(STOCKS), 0.5))
 
 

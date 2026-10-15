@@ -10,12 +10,18 @@ import type { WebSocket } from 'ws';
 import type { Notifier } from '../notifier';
 import { requireUser } from '../supabase';
 import { startOfficeProxy } from './officeProxy';
-import { applyStatus, isPixelAgentsReady, startPixelAgents, stopPixelAgents, type AgentStatus } from './pixelAgents';
+import { applyStatus, idleLabel, isPixelAgentsReady, officeName, startPixelAgents, stopPixelAgents, type AgentStatus } from './pixelAgents';
 import { sessionCookie, sessionUser } from './session';
+import { createStateSaver, loadState } from './state';
 
 /** 알림함·웹 푸시로 알리는 상태. ERROR/FAILED = 실패, COMPLETE = 놓치면 안 되는 완료 (예: 개찰결과 공개) */
 const ALERT_STATUSES = new Set(['ERROR', 'FAILED', 'COMPLETE']);
 const RECENT_MAX = 50;
+const NAME_MAX = 40;
+const LABEL_MAX = 60;
+
+/** 선택 문자열 필드: 비었으면 undefined, 길면 자른다 */
+const optionalText = (v: unknown, max: number) => (v ? String(v).trim().slice(0, max) || undefined : undefined);
 
 const PROJECT_DIR = process.env.PIXEL_AGENTS_PROJECT_DIR || process.cwd();
 const OFFICE_PORT = Number(process.env.MONITOR_OFFICE_PORT ?? 8081);
@@ -41,18 +47,32 @@ const isHttps = (req: FastifyRequest) => req.protocol === 'https' || req.headers
 export async function monitorRoutes(app: FastifyInstance, opts: { notifier: Notifier | null }) {
   await app.register(websocket);
 
-  const agents = new Map<string, AgentStatus>();
-  const recent: AgentStatus[] = [];
+  // 재시작 전 상태를 이어받는다 (장 마감 후 재배포돼도 로그·캐릭터가 남게)
+  const saved = loadState();
+  const agents = new Map<string, AgentStatus>(saved.agents.map((a) => [a.agentId, a]));
+  const recent: AgentStatus[] = saved.recent.slice(0, RECENT_MAX);
   const clients = new Set<WebSocket>();
+  const saveState = createStateSaver(
+    () => ({ agents: [...agents.values()], recent }),
+    (err) => app.log.warn({ err }, '에이전트 모니터 상태 저장 실패'),
+  );
 
   const broadcast = (payload: unknown) => {
     const data = JSON.stringify(payload);
     for (const c of clients) if (c.readyState === c.OPEN) c.send(data);
   };
 
-  app.post<{ Body: { agentId?: unknown; status?: unknown; message?: unknown } }>('/monitor/status', async (req, reply) => {
+  app.post<{
+    Body: {
+      agentId?: unknown;
+      status?: unknown;
+      message?: unknown;
+      name?: unknown;
+      label?: unknown;
+    };
+  }>('/monitor/status', async (req, reply) => {
     if (!canIngest(req)) return reply.code(403).send({ ok: false, error: 'forbidden' });
-    const { agentId, status, message } = req.body ?? {};
+    const { agentId, status, message, name, label } = req.body ?? {};
     if (!agentId || !status) return reply.code(400).send({ ok: false, error: 'agentId, status 필드는 필수입니다.' });
 
     const entry: AgentStatus = {
@@ -60,10 +80,13 @@ export async function monitorRoutes(app: FastifyInstance, opts: { notifier: Noti
       status: String(status).toUpperCase(),
       message: message ? String(message) : '',
       updatedAt: Date.now(),
+      name: optionalText(name, NAME_MAX),
+      label: optionalText(label, LABEL_MAX),
     };
     agents.set(entry.agentId, entry);
     recent.unshift(entry);
     recent.length = Math.min(recent.length, RECENT_MAX);
+    saveState();
     broadcast({ type: 'agentUpdate', agent: entry });
 
     if (ALERT_STATUSES.has(entry.status) && opts.notifier) {
@@ -79,7 +102,7 @@ export async function monitorRoutes(app: FastifyInstance, opts: { notifier: Noti
         .catch((e) => req.log.error({ err: e }, '에이전트 알림 저장 실패'));
     }
 
-    const pixelAgents = await applyStatus(entry, PROJECT_DIR);
+    const pixelAgents = await applyStatus(entry);
     return { ok: true, agent: entry, delivered: clients.size, pixelAgents };
   });
 
@@ -115,12 +138,28 @@ export async function monitorRoutes(app: FastifyInstance, opts: { notifier: Noti
     return;
   }
   let proxy: ReturnType<typeof startOfficeProxy> | null = null;
+  // 쉬는 캐릭터 라벨 문구 (오피스 화면이 15초마다 가져간다)
+  const officeLabels = () => {
+    const out: Record<string, string> = {};
+    for (const a of agents.values()) {
+      const label = idleLabel(a);
+      if (label) out[officeName(a)] = label;
+    }
+    return out;
+  };
+  // 새로 뜬 pixel-agents 는 빈 사무실이라, 에이전트마다 마지막 상태를 다시 보내 캐릭터를 되살린다.
+  // (상태 전송이 pixel-agents 준비 전에 와서 버려진 경우도 여기서 채워진다)
+  const restoreOffice = async () => {
+    for (const a of agents.values()) await applyStatus(a);
+    if (agents.size > 0) app.log.info(`픽셀 오피스: 에이전트 ${agents.size}명 복원`);
+  };
   // 첫 실행은 npx 다운로드로 오래 걸리므로 API 시작을 막지 않고 뒤에서 띄운다
   app.addHook('onReady', async () => {
     startPixelAgents(PROJECT_DIR, app.log)
       .then((port) => {
-        proxy = startOfficeProxy(OFFICE_PORT, process.env.HOST ?? '0.0.0.0', port, app.log);
+        proxy = startOfficeProxy(OFFICE_PORT, process.env.HOST ?? '0.0.0.0', port, app.log, officeLabels);
         broadcast({ type: 'pixelAgentsReady' });
+        return restoreOffice();
       })
       .catch((e) => app.log.error({ err: e }, "pixel-agents 시작 실패 ('npx pixel-agents' 가 동작하는지 확인)"));
   });

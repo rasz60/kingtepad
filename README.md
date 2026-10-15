@@ -101,8 +101,11 @@ jobs/*.py (pm2) ──POST http://127.0.0.1:8080/monitor/status
 - 상태 보내기: `POST /monitor/status` `{ "agentId": "worker1", "status": "WORKING", "message": "..." }`
   - `WORKING`/`RUNNING`/`ACTIVE` 작업 중 · `WAITING`/`PENDING`/`QUEUED` 대기 · `ERROR`/`FAILED` 실패 · `COMPLETE`/`DONE`/`IDLE` 등 쉬는 중
   - `MONITOR_INGEST_TOKEN` 을 설정했으면 `X-Monitor-Token` 헤더 필수. 비웠으면 같은 서버(127.0.0.1)에서 직접 보낸 요청만 받는다
+  - 선택 필드: `name` = 캐릭터 라벨 이름(없으면 agentId, 캐릭터를 처음 만들 때만 반영), `label` = 쉬는 상태일 때 라벨의 `Idle` 대신 보일 문구 (예: `"퇴근했습니다!😁"`)
+  - 라벨은 픽셀 오피스 **Settings → Always Show Labels** 를 켜면 항상 보인다 (끄면 캐릭터를 누르거나 올렸을 때만)
 - 배치 작업: `jobs/run_stocks.py`(KIS 시세, 종목은 `jobs/stocks.json`), `jobs/watch_openg.py`(나라장터 개찰결과, 결과가 뜨면 `COMPLETE` 후 종료)
-  - 주식 잡은 장중(평일 09:00~15:30, KIS 휴장일조회로 공휴일 제외)에만 시세를 보낸다. 장이 닫히면 종가로 "장 마감"을 종목마다 한 번 보내고(IDLE → 캐릭터가 돌아다님) 다음 개장까지 조용히 기다린다
+  - 주식 잡은 장중(평일 09:00~15:30, KIS 휴장일조회로 공휴일 제외)에만 시세를 보낸다. 장이 닫히면 종가로 "장 마감"을 종목마다 한 번 보내고(IDLE, 라벨 "퇴근했습니다!😁" → 캐릭터가 돌아다님) 다음 개장까지 조용히 기다린다. 캐릭터 이름은 종목명
+- 에이전트별 마지막 상태와 최근 로그는 `~/.kingtepad/monitor-state.json` 에 저장된다. API 가 재시작(자동 배포 등)되면 이걸로 로그를 이어 보여 주고, pixel-agents 가 뜨면 캐릭터를 다시 불러온다 (7일 넘게 소식 없는 에이전트는 제외)
 - 픽셀 오피스 터치: 한 손가락 드래그 = 화면 이동, 두 손가락 핀치 = 줌 (오피스 프록시가 pixel-agents 화면에 터치 스크립트를 끼워 넣는다)
 - 로컬 개발: `npm run dev:api` 후 `apps/web/.env` 에 `VITE_API_URL=http://localhost:8080` (오피스는 `http://localhost:8081`)
 
