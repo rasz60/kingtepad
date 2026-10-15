@@ -1,5 +1,6 @@
 import type { Category } from '@kingtepad/shared';
 import { useState } from 'react';
+import { AGENT_STATUS_URL, AgentTokenSetting } from '../components/AgentToken';
 import { InstallSetting } from '../components/Install';
 import { PushToggle } from '../components/Notifications';
 import { useApp } from '../lib/AppContext';
@@ -97,6 +98,21 @@ export function Settings() {
         <span className="type ini-key">push</span>
         <span className="op">=</span>
         <PushToggle />
+      </div>
+
+      <p className="ln">&nbsp;</p>
+      <p className="ln ini-section">[에이전트]</p>
+      <p className="ln comment">; 배치 잡의 jobs/.env 에 아래 두 값을 넣으면 그 잡의 로그·알림이 이 계정으로 와요</p>
+      <p className="ln comment">; (토큰은 비밀번호처럼 다뤄 주세요. 픽셀 오피스는 모든 계정이 같이 봐요)</p>
+      <div className="ln ini-row">
+        <span className="type ini-key">MONITOR_STATUS_URL</span>
+        <span className="op">=</span>
+        <span className="str agent-url">{AGENT_STATUS_URL}</span>
+      </div>
+      <div className="ln ini-row">
+        <span className="type ini-key">MONITOR_INGEST_TOKEN</span>
+        <span className="op">=</span>
+        <AgentTokenSetting />
       </div>
 
       <p className="ln">&nbsp;</p>

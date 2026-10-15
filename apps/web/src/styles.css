@@ -739,6 +739,8 @@ input[type='range']:focus { box-shadow: none; }
 .ini-color input::-webkit-color-swatch { border: 0; }
 .ini-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; }
 .ini-new { width: 200px; }
+.agent-token { flex: 1; min-width: 0; max-width: 420px; font-size: 11px; }
+.agent-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── 상태 표시줄 ──────────────────────── */
 .statusbar {

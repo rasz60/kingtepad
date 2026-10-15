@@ -101,6 +101,11 @@ jobs/*.py (pm2) ──POST http://127.0.0.1:8080/monitor/status
 - 상태 보내기: `POST /monitor/status` `{ "agentId": "worker1", "status": "WORKING", "message": "..." }`
   - `WORKING`/`RUNNING`/`ACTIVE` 작업 중 · `WAITING`/`PENDING`/`QUEUED` 대기 · `ERROR`/`FAILED` 실패 · `COMPLETE`/`DONE`/`IDLE` 등 쉬는 중
   - `MONITOR_INGEST_TOKEN` 을 설정했으면 `X-Monitor-Token` 헤더 필수. 비웠으면 같은 서버(127.0.0.1)에서 직접 보낸 요청만 받는다
+- **계정별 분리**: 업무·일지·일정·카테고리·알림은 DB(RLS)에서 계정별로 저장된다. 에이전트 모니터는 **로그·알림만 계정별, 픽셀 오피스는 공용**
+  - 계정 잡 토큰: 설정.ini **[에이전트]** 에서 확인 → 그 잡의 `jobs/.env` 에 `MONITOR_INGEST_TOKEN=<토큰>`, `MONITOR_STATUS_URL=https://<도메인>/api/monitor/status`
+    (토큰 = `kt1.<사용자 id>.<서명>`, DB 에 저장하지 않는다. 서명 키는 `MONITOR_TOKEN_SECRET` 또는 서버의 `~/.kingtepad/monitor-token-secret`. 이 파일을 지우면 모든 계정 토큰이 폐기된다)
+  - 공용 토큰(`apps/api/.env` 의 `MONITOR_INGEST_TOKEN`)이나 같은 서버에서 토큰 없이 보낸 잡은 **기본 소유자** 것: `MONITOR_OWNER_USER_ID`, 없으면 가장 먼저 가입한 계정(`SUPABASE_SERVICE_ROLE_KEY` 필요). 둘 다 없으면 모든 계정에 보인다
+  - 계정 추가: 회원가입 화면은 없으므로 Supabase → Authentication → Users → **Add user** 로 만든다 (기본 카테고리는 자동 생성)
   - 선택 필드: `name` = 캐릭터 라벨 이름(없으면 agentId, 캐릭터를 처음 만들 때만 반영), `label` = 쉬는 상태일 때 라벨의 `Idle` 대신 보일 문구 (예: `"퇴근했습니다!😁"`)
   - 라벨은 픽셀 오피스 **Settings → Always Show Labels** 를 켜면 항상 보인다 (끄면 캐릭터를 누르거나 올렸을 때만)
 - 배치 작업: `jobs/run_stocks.py`(KIS 시세, 종목은 `jobs/stocks.json`), `jobs/watch_openg.py`(나라장터 개찰결과, 결과가 뜨면 `COMPLETE` 후 종료)

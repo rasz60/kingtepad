@@ -23,6 +23,8 @@ export interface AgentStatus {
   name?: string;
   /** 쉬는 상태일 때 라벨에 'Idle' 대신 보일 문구 (예: '퇴근했습니다!😁') */
   label?: string;
+  /** 이 잡을 등록한 계정. 로그·알림은 이 계정에만 간다 (없으면 모두에게 보임) */
+  ownerId?: string;
 }
 
 export interface HookResult {
@@ -53,9 +55,11 @@ export function idleLabel(entry: AgentStatus): string | undefined {
   return busy ? undefined : entry.label || undefined;
 }
 
-// 세션 ID. 예전에는 agentId 를 그대로 썼는데 그때 만든 캐릭터는 이름이 전부 'api' 라서,
-// 접두사를 붙여 새로 만들고 예전 세션은 SessionEnd 로 사무실에서 내보낸다 (없는 세션이면 무시됨)
-const sessionIdOf = (agentId: string) => `kt:${agentId}`;
+// 세션 ID. 계정마다 같은 agentId 를 쓸 수 있으므로 계정 id 앞 8자를 붙인다.
+// 예전 형식(agentId 그대로 = 이름이 'api' 인 캐릭터, kt:agentId = 계정 구분 전)으로 만든 캐릭터는
+// 처음 반영할 때 SessionEnd 로 사무실에서 내보낸다 (없는 세션이면 무시됨)
+const sessionIdOf = (entry: AgentStatus) => (entry.ownerId ? `kt:${entry.ownerId.slice(0, 8)}:${entry.agentId}` : `kt:${entry.agentId}`);
+const legacySessionIds = (entry: AgentStatus) => [entry.agentId, `kt:${entry.agentId}`].filter((id) => id !== sessionIdOf(entry));
 
 let child: ChildProcess | null = null;
 let serverPort: number | null = null;
@@ -205,14 +209,10 @@ const truncate = (s: string) => (s.length > BASH_COMMAND_MAX_LEN ? `${s.slice(0,
 /** 배치 작업 상태 하나를 pixel-agents 캐릭터 애니메이션으로 반영한다 */
 export async function applyStatus(entry: AgentStatus): Promise<HookResult> {
   if (!isPixelAgentsReady()) return { ok: false, error: 'pixel-agents 가 아직 준비되지 않았습니다.' };
-  const session_id = sessionIdOf(entry.agentId);
+  const session_id = sessionIdOf(entry);
   if (!startedSessions.has(session_id)) {
     startedSessions.add(session_id);
-    await sendHook({
-      hook_event_name: 'SessionEnd',
-      session_id: entry.agentId,
-      reason: 'other',
-    });
+    for (const legacy of legacySessionIds(entry)) await sendHook({ hook_event_name: 'SessionEnd', session_id: legacy, reason: 'other' });
     const cwd = path.join(OFFICE_NAMES_DIR, officeName(entry));
     fs.mkdirSync(cwd, { recursive: true });
     await sendHook({
