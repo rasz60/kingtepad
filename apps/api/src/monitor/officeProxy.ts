@@ -5,6 +5,7 @@
 import http from 'node:http';
 import type { FastifyBaseLogger } from 'fastify';
 import { createProxyMiddleware } from 'http-proxy-middleware';
+import { injectTouchSupport } from './officeTouch';
 import { sessionUser } from './session';
 
 const DENIED = '업무일지++ 의 에이전트.exe 탭에서 열어 주세요.';
@@ -20,6 +21,16 @@ function isSameOrigin(req: http.IncomingMessage): boolean {
   }
 }
 
+async function serveIndex(targetPort: number, url: string, res: http.ServerResponse) {
+  const upstream = await fetch(`http://127.0.0.1:${targetPort}${url}`);
+  const html = await upstream.text();
+  res.writeHead(upstream.status, {
+    'Content-Type': upstream.headers.get('content-type') ?? 'text/html; charset=utf-8',
+    'Cache-Control': 'no-cache', // 내용을 바꿔 보내므로 원본 ETag/Last-Modified 는 쓰지 않는다
+  });
+  res.end(upstream.ok ? injectTouchSupport(html) : html);
+}
+
 export function startOfficeProxy(listenPort: number, host: string, targetPort: number, log: FastifyBaseLogger) {
   const proxy = createProxyMiddleware({ target: `http://127.0.0.1:${targetPort}`, changeOrigin: true });
 
@@ -27,6 +38,16 @@ export function startOfficeProxy(listenPort: number, host: string, targetPort: n
     if (!sessionUser(req)) {
       res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
       return res.end(DENIED);
+    }
+    // 화면 HTML 에만 터치 지원 스크립트를 넣는다. 나머지(에셋·API)는 그대로 중계
+    const path = req.url?.split('?')[0];
+    if (req.method === 'GET' && (path === '/' || path === '/index.html')) {
+      serveIndex(targetPort, req.url!, res).catch((err) => {
+        log.warn({ err }, '픽셀 오피스 index.html 중계 실패');
+        if (!res.headersSent) res.writeHead(502);
+        res.end();
+      });
+      return;
     }
     proxy(req, res, () => {
       res.writeHead(404);

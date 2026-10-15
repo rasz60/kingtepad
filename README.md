@@ -58,7 +58,7 @@ jobs/*.py (pm2) ──POST http://127.0.0.1:8080/monitor/status
    python3 -m venv venv && ./venv/bin/pip install -r jobs/requirements.txt
    pm2 start ecosystem.config.cjs && pm2 save && pm2 startup
    ```
-   업데이트: `git pull && npm ci && npm run build && pm2 startOrReload ecosystem.config.cjs`
+   업데이트: `main` 에 push 하면 자동 배포된다 (아래 6). 수동으로는 `bash scripts/deploy.sh`
 5. **Caddy**: `/etc/caddy/Caddyfile` 작성 후 `sudo systemctl reload caddy` (Caddy 사용자가 `apps/web/dist` 를 읽을 수 있어야 한다)
    ```
    kingtepad.duckdns.org {
@@ -77,6 +77,19 @@ jobs/*.py (pm2) ──POST http://127.0.0.1:8080/monitor/status
      reverse_proxy 127.0.0.1:8081
    }
    ```
+6. **자동 배포 (GitHub Actions)**: `main` 에 push → 타입체크·테스트 → 서버에 SSH 로 접속해 [scripts/deploy.sh](scripts/deploy.sh) 실행
+   (최신 main 받기 → `npm ci` → 빌드 → 필요하면 pip → `pm2 startOrReload`). 빌드가 실패하면 pm2 는 건드리지 않는다.
+   최초 1회 설정:
+   ```bash
+   # (서버) 배포 전용 키를 만들고, 이 키로는 deploy.sh 만 실행되게 묶는다
+   ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/gha_deploy -N ""
+   echo "command=\"bash $HOME/kingtepad/scripts/deploy.sh\",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty $(cat ~/.ssh/gha_deploy.pub)" >> ~/.ssh/authorized_keys
+   cat ~/.ssh/gha_deploy            # → Secret DEPLOY_SSH_KEY 에 붙여 넣고, 서버의 이 파일은 지운다
+   ssh-keyscan -t ed25519 localhost | sed 's/^localhost/kingtepad.duckdns.org/'   # → Secret DEPLOY_KNOWN_HOSTS
+   ```
+   GitHub 저장소 → Settings → Secrets and variables → Actions 에 `DEPLOY_HOST`(kingtepad.duckdns.org), `DEPLOY_USER`(ubuntu),
+   `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` 를 넣는다. 서버의 `git pull` 은 읽기 전용 배포 키(Deploy key)로 동작해야 한다.
+   진행 상황은 저장소 **Actions** 탭에서 본다. 수동 실행은 Actions → deploy → Run workflow.
 
 ### 에이전트 모니터 (구 pixel-agent-monitor)
 
@@ -89,6 +102,8 @@ jobs/*.py (pm2) ──POST http://127.0.0.1:8080/monitor/status
   - `WORKING`/`RUNNING`/`ACTIVE` 작업 중 · `WAITING`/`PENDING`/`QUEUED` 대기 · `ERROR`/`FAILED` 실패 · `COMPLETE`/`DONE`/`IDLE` 등 쉬는 중
   - `MONITOR_INGEST_TOKEN` 을 설정했으면 `X-Monitor-Token` 헤더 필수. 비웠으면 같은 서버(127.0.0.1)에서 직접 보낸 요청만 받는다
 - 배치 작업: `jobs/run_stocks.py`(KIS 시세, 종목은 `jobs/stocks.json`), `jobs/watch_openg.py`(나라장터 개찰결과, 결과가 뜨면 `COMPLETE` 후 종료)
+  - 주식 잡은 장중(평일 09:00~15:30, KIS 휴장일조회로 공휴일 제외)에만 시세를 보낸다. 장이 닫히면 종가로 "장 마감"을 종목마다 한 번 보내고(IDLE → 캐릭터가 돌아다님) 다음 개장까지 조용히 기다린다
+- 픽셀 오피스 터치: 한 손가락 드래그 = 화면 이동, 두 손가락 핀치 = 줌 (오피스 프록시가 pixel-agents 화면에 터치 스크립트를 끼워 넣는다)
 - 로컬 개발: `npm run dev:api` 후 `apps/web/.env` 에 `VITE_API_URL=http://localhost:8080` (오피스는 `http://localhost:8081`)
 
 ### 알림 · 웹 푸시

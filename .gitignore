@@ -11,3 +11,4 @@ __pycache__/
 venv/
 jobs/.kis_token_cache.json
 jobs/watch_state*.json
+jobs/openg_result_*.json

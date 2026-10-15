@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { AppProvider } from './lib/AppContext';
+import './lib/install'; // 설치 이벤트(beforeinstallprompt)는 로그인 화면에서 올 수 있어 시작하자마자 받아 둔다
 import { Calendar } from './pages/Calendar';
 import { Login } from './pages/Login';
 import { Monitor } from './pages/Monitor';

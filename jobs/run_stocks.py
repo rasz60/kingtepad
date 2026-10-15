@@ -1,9 +1,11 @@
 """
 여러 종목의 KIS 현재가를 REST API로 주기적으로 폴링해서 pixel-agents 상태를 갱신하는 실행 파일.
 
-장중/장마감 여부와 무관하게 매 주기마다 무조건 API를 호출한다.
-- 장 진행 중: agent status = WORKING (running)
-- 장 마감/휴장: agent status = IDLE  (API로 받은 직전/종가 시세를 메시지에 포함)
+- 장 진행 중: 주기마다 시세를 조회해 agent status = WORKING 으로 보낸다.
+- 장 마감/휴장: 장이 닫히는 순간(또는 장 밖에서 처음 실행됐을 때) 종가를 한 번 조회해
+  IDLE 로 "장 마감" 메시지를 딱 한 번 보낸다. 이후에는 시세 조회도 상태 전송도 하지 않고
+  1분마다 장이 열렸는지만 확인한다. (IDLE 캐릭터는 픽셀 오피스를 자유롭게 돌아다닌다)
+- 휴장일(공휴일·연말 등)은 KIS 국내휴장일조회 API로 하루 한 번 확인한다.
 
 종목 추가:
     jobs/stocks.json 에 {"code": "종목코드", "name": "표시명"} 한 줄만 추가하면 된다.
@@ -53,6 +55,8 @@ STOCKS = load_stocks()
 # 2. 공용 설정
 # ==========================================
 POLL_INTERVAL = 6.0  # 종목 전체를 한 바퀴 도는 주기(초). 종목이 늘어나면 호출 빈도가 자동으로 분산됨.
+CLOSED_CHECK_INTERVAL = 60.0  # 장 밖에서 장이 열렸는지 다시 확인하는 주기(초)
+HOLIDAY_RETRY_SEC = 600  # 휴장일 조회가 실패했을 때 다시 시도하기까지(초). 그동안은 평일=개장으로 본다
 ALERT_STEP = 5.0  # 몇 %p 단위로 급등/급락 알람을 띄울지 (5% 단위 -> ±5, ±10, ±15, ...)
 
 # pm2 재시작 등으로 프로세스가 새로 뜨면 메모리 캐시(ACCESS_TOKEN)가 사라지는데, 그때마다
@@ -67,6 +71,8 @@ last_status_text = {s.AGENT_ID: None for s in STOCKS}
 alert_level = {s.AGENT_ID: 0 for s in STOCKS}
 ACCESS_TOKEN = None
 ACCESS_TOKEN_EXPIRES_AT = 0.0
+# 휴장일 조회 캐시: {"date": "YYYYMMDD", "open": bool, "retry_at": 실패 시 재조회 시각}
+_trading_day = {"date": None, "open": True, "retry_at": 0.0}
 
 
 # ==========================================
@@ -97,7 +103,8 @@ def is_market_open():
 
     start_time = now.replace(hour=9, minute=0, second=0, microsecond=0)
     end_time = now.replace(hour=15, minute=30, second=0, microsecond=0)
-    return start_time <= now <= end_time
+    # 장 시간 안일 때만 휴장일을 조회한다 (하루 한 번, 캐시)
+    return start_time <= now <= end_time and is_trading_day(now)
 
 
 def format_status(stock, output):
@@ -183,6 +190,44 @@ def fetch_price(stock):
     return data["output"]
 
 
+def is_trading_day(now):
+    """KIS 국내휴장일조회(TR ID: CTCA0903R)로 오늘이 개장일인지 확인한다.
+
+    KIS 가 하루 1회 호출을 권장하므로 날짜별로 캐시한다. 조회가 실패하면(모의투자 도메인은
+    이 API 를 지원하지 않음) 평일은 개장으로 보고, HOLIDAY_RETRY_SEC 뒤에 다시 시도한다.
+    """
+    today = now.strftime("%Y%m%d")
+    cache = _trading_day
+    # 오늘 조회에 성공했거나(retry_at=0), 실패 후 재시도 시각 전이면 캐시를 쓴다
+    if cache["date"] == today and (not cache["retry_at"] or time.time() < cache["retry_at"]):
+        return cache["open"]
+
+    url = f"{kis.REST_DOMAIN}/uapi/domestic-stock/v1/quotations/chk-holiday"
+    headers = {
+        "content-type": "application/json",
+        "authorization": f"Bearer {get_access_token()}",
+        "appkey": kis.APP_KEY,
+        "appsecret": kis.APP_SECRET,
+        "tr_id": "CTCA0903R",
+        "custtype": "P",
+    }
+    params = {"BASS_DT": today, "CTX_AREA_NK": "", "CTX_AREA_FK": ""}
+    try:
+        res = requests.get(url, headers=headers, params=params, timeout=5)
+        res.raise_for_status()
+        data = res.json()
+        if data.get("rt_cd") != "0":
+            raise RuntimeError(f"{data.get('msg_cd')}: {data.get('msg1')}")
+        row = next(r for r in data["output"] if r.get("bass_dt") == today)
+        opened = row.get("opnd_yn") == "Y"
+        cache.update(date=today, open=opened, retry_at=0.0)
+        print(f"📅 {today} {'개장일' if opened else '휴장일'} (KIS 휴장일조회)")
+    except Exception as e:
+        cache.update(date=today, open=True, retry_at=time.time() + HOLIDAY_RETRY_SEC)
+        print(f"[휴장일 조회 실패 → 평일은 개장으로 간주] {e}")
+    return cache["open"]
+
+
 # ==========================================
 # 5. 급등/급락 알람 로직
 # ==========================================
@@ -210,68 +255,65 @@ def build_alert_message(stock_name, prev_level, curr_level, rate):
 
 
 # ==========================================
-# 6. 메인 루프: 무조건 API 호출 → 장중 WORKING / 그 외 IDLE
+# 6. 메인 루프: 장중엔 주기적으로 조회해 WORKING, 장이 닫히면 IDLE 한 번 보내고 조용히 대기
 # ==========================================
-def poll_loop():
-    global agent_states
-    while True:
-        open_now = is_market_open()
-        interval_per_stock = max(POLL_INTERVAL / len(STOCKS), 0.5)
+def announce_close():
+    """장 마감(또는 장 밖에서 시작)을 종목마다 한 번만 알린다. 종가는 이때 한 번만 조회한다."""
+    for stock in STOCKS:
+        if agent_states[stock.AGENT_ID] == "IDLE":
+            continue
+        try:
+            closing = format_status(stock, fetch_price(stock))
+            last_status_text[stock.AGENT_ID] = closing
+        except Exception as e:
+            print(f"[{stock.STOCK_NAME}] 종가 조회 에러: {e}")
+            closing = last_status_text.get(stock.AGENT_ID)
+        message = f"🔔 장 마감 — {closing}" if closing else f"🔔 장 마감 — {stock.STOCK_NAME}"
+        agent_states[stock.AGENT_ID] = "IDLE"
+        print(f"[{stock.STOCK_NAME}] {message}")
+        update_pixel_agent(stock.AGENT_ID, "IDLE", f"{message} · 다음 개장 때 다시 출근할게요 💤")
+        time.sleep(max(POLL_INTERVAL / len(STOCKS), 0.5))
 
+
+def poll_loop():
+    while True:
+        if not is_market_open():
+            # 장이 닫힌 동안에는 시세 조회도 상태 전송도 하지 않는다 (마감 알림은 처음 한 번만)
+            announce_close()
+            time.sleep(CLOSED_CHECK_INTERVAL)
+            continue
+
+        interval_per_stock = max(POLL_INTERVAL / len(STOCKS), 0.5)
         for stock in STOCKS:
             try:
-                # 장중/장마감과 무관하게 무조건 API 호출
                 output = fetch_price(stock)
                 status_text = format_status(stock, output)
                 last_status_text[stock.AGENT_ID] = status_text
-                print(f"[{stock.STOCK_NAME}] {'장중' if open_now else '장마감'} | {status_text}")
+                print(f"[{stock.STOCK_NAME}] 장중 | {status_text}")
 
-                if open_now:
-                    if agent_states[stock.AGENT_ID] != "WORKING":
-                        agent_states[stock.AGENT_ID] = "WORKING"
-                        alert_level[stock.AGENT_ID] = 0
-                        print(f"⏰ {stock.STOCK_NAME} 출근합니다.")
-                        update_pixel_agent(
-                            agent_id=stock.AGENT_ID,
-                            status="WORKING",
-                            message=f"출근 완료! {stock.STOCK_NAME} 모니터링을 시작합니다 📈",
-                        )
+                if agent_states[stock.AGENT_ID] != "WORKING":
+                    agent_states[stock.AGENT_ID] = "WORKING"
+                    alert_level[stock.AGENT_ID] = 0
+                    print(f"⏰ {stock.STOCK_NAME} 출근합니다.")
+                    update_pixel_agent(
+                        agent_id=stock.AGENT_ID,
+                        status="WORKING",
+                        message=f"출근 완료! {stock.STOCK_NAME} 모니터링을 시작합니다 📈",
+                    )
 
-                    rate = signed_change_rate(output)
-                    current_level = compute_alert_level(rate)
-                    prev_level = alert_level[stock.AGENT_ID]
-                    if current_level != prev_level:
-                        alert_msg = build_alert_message(
-                            stock.STOCK_NAME, prev_level, current_level, rate
-                        )
-                        print(f"[{stock.STOCK_NAME}] {alert_msg}")
-                        update_pixel_agent(stock.AGENT_ID, "WARNING", alert_msg)
-                        alert_level[stock.AGENT_ID] = current_level
+                rate = signed_change_rate(output)
+                current_level = compute_alert_level(rate)
+                prev_level = alert_level[stock.AGENT_ID]
+                if current_level != prev_level:
+                    alert_msg = build_alert_message(stock.STOCK_NAME, prev_level, current_level, rate)
+                    print(f"[{stock.STOCK_NAME}] {alert_msg}")
+                    update_pixel_agent(stock.AGENT_ID, "WARNING", alert_msg)
+                    alert_level[stock.AGENT_ID] = current_level
 
-                    update_pixel_agent(stock.AGENT_ID, "WORKING", status_text)
-                else:
-                    message = f"{status_text} — 장 마감/휴장, 종가 기준으로 쉬는 중이에요 💤"
-                    if agent_states[stock.AGENT_ID] != "IDLE":
-                        agent_states[stock.AGENT_ID] = "IDLE"
-                        print(f"⏰ {stock.STOCK_NAME} 유휴 상태로 전환합니다.")
-                    update_pixel_agent(stock.AGENT_ID, "IDLE", message)
+                update_pixel_agent(stock.AGENT_ID, "WORKING", status_text)
             except Exception as e:
                 print(f"[{stock.STOCK_NAME}] 시세 조회 에러: {e}")
-                # API 실패 시에도 장중 판정에 맞춰 상태만 유지/갱신
-                if open_now:
-                    update_pixel_agent(
-                        stock.AGENT_ID,
-                        "WORKING",
-                        f"⚠ 시세 조회 에러(재시도 예정): {e}",
-                    )
-                else:
-                    closing_note = last_status_text.get(stock.AGENT_ID)
-                    message = (
-                        f"{closing_note} — 장 마감/휴장, 쉬는 중이에요 💤"
-                        if closing_note
-                        else "장 마감/휴장, 쉬는 중이에요 💤"
-                    )
-                    update_pixel_agent(stock.AGENT_ID, "IDLE", message)
+                update_pixel_agent(stock.AGENT_ID, "WORKING", f"⚠ 시세 조회 에러(재시도 예정): {e}")
 
             time.sleep(interval_per_stock)
 
@@ -288,14 +330,7 @@ if __name__ == "__main__":
         print("   kis_credentials.py의 APP_KEY / APP_SECRET 값을 확인하세요.")
         raise SystemExit(1)
 
-    for stock in STOCKS:
-        update_pixel_agent(
-            agent_id=stock.AGENT_ID,
-            status="WORKING",
-            message=f"{stock.STOCK_NAME} 모니터링 시작 (연결 테스트) 🔌",
-        )
-    print("🧪 파이프라인 테스트용 상태를 포트 5000으로 전송했습니다. 말풍선이 뜨는지 확인해보세요.")
-
+    # 시작 상태는 첫 루프가 정한다: 장중이면 "출근 완료", 장 밖이면 "장 마감" 한 번
     names = ", ".join(f"{s.STOCK_NAME}({s.STOCK_CODE})" for s in STOCKS)
     print(
         f"🚀 Stock Pixel Agents 실행 중 (REST 폴링, 종목당 약 {POLL_INTERVAL}s 주기)... [{names}]"

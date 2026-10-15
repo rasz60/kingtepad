@@ -1,13 +1,10 @@
 // 웹 푸시 구독. VAPID 공개키가 없거나 서비스 워커가 없으면(개발 서버) 비활성.
 import { deletePushSubscription, savePushSubscription } from './db';
+import { isIos, isStandalone } from './install';
 
 const VAPID_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
 
 export type PushState = 'unsupported' | 'ios-install' | 'denied' | 'off' | 'on';
-
-const isIos = () => /iPad|iPhone|iPod/.test(navigator.userAgent);
-const isStandalone = () =>
-  matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
 
 async function registration() {
   if (!('serviceWorker' in navigator)) return undefined;

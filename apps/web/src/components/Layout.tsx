@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { listLogs, listTasks } from '../lib/db';
 import { useAsync } from '../lib/useAsync';
+import { InstallBanner } from './Install';
 import { LogForm } from './LogForm';
 import { NotificationCenter } from './Notifications';
 import { Pixel, type PixelName } from './Pixel';
@@ -106,6 +107,8 @@ export function Layout() {
           </NavLink>
         ))}
       </nav>
+
+      <InstallBanner />
 
       <main className="editor">
         <Outlet />

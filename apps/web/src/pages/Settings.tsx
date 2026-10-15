@@ -1,5 +1,6 @@
 import type { Category } from '@kingtepad/shared';
 import { useState } from 'react';
+import { InstallSetting } from '../components/Install';
 import { PushToggle } from '../components/Notifications';
 import { useApp } from '../lib/AppContext';
 import { deleteCategory, saveCategory } from '../lib/db';
@@ -96,6 +97,15 @@ export function Settings() {
         <span className="type ini-key">push</span>
         <span className="op">=</span>
         <PushToggle />
+      </div>
+
+      <p className="ln">&nbsp;</p>
+      <p className="ln ini-section">[앱]</p>
+      <p className="ln comment">; 홈 화면에 설치하면 전체 화면으로 열려요 (아이폰 푸시는 설치한 앱에서만)</p>
+      <div className="ln ini-row">
+        <span className="type ini-key">install</span>
+        <span className="op">=</span>
+        <InstallSetting />
       </div>
 
       <p className="ln">&nbsp;</p>

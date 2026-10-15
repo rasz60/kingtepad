@@ -719,6 +719,14 @@ input[type='range']:focus { box-shadow: none; }
 .toast-main strong, .toast-main span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .toast-main span { color: var(--muted); font-size: 11px; line-height: 16px; }
 .toast-close { padding: 8px; }
+
+.install-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 4px 4px 10px;
+  background: var(--editor-bg);
+  border-bottom: 1px solid var(--chrome-border); border-left: 4px solid var(--type);
+}
+.install-text { flex: 1; min-width: 0; font-size: 12px; line-height: 18px; }
 @keyframes toast-in { from { transform: translateX(24px); opacity: 0; } }
 
 /* ── 설정 (.ini) ──────────────────────── */
