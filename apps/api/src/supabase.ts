@@ -8,6 +8,7 @@ if (!url || !anonKey) throw new Error('SUPABASE_URL / SUPABASE_ANON_KEY 가 필�
 declare module 'fastify' {
   interface FastifyRequest {
     db: SupabaseClient;
+    userId: string;
   }
 }
 
@@ -28,4 +29,5 @@ export async function requireUser(req: FastifyRequest, reply: FastifyReply) {
   if (error || !data.user) return reply.code(401).send({ error: 'unauthorized' });
 
   req.db = db;
+  req.userId = data.user.id;
 }

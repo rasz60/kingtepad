@@ -11,14 +11,17 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.3.1",
+    "@fastify/websocket": "^11.3.4",
     "@kingtepad/shared": "*",
     "@supabase/supabase-js": "^2.117.3",
     "fastify": "^5.12.5",
+    "http-proxy-middleware": "^4.2.0",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/web-push": "^3.6.4",
+    "@types/ws": "^8.18.2",
     "tsup": "^8.5.1",
     "tsx": "^4.23.15"
   }

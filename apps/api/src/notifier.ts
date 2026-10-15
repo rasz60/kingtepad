@@ -1,6 +1,12 @@
 // 알림 스케줄러: 1분마다 알림을 만들고(웹과 같은 규칙), 아직 안 보낸 알림을 웹 푸시로 보낸다.
 // 사용자 요청 없이 돌아야 하므로 service_role 키를 쓴다. 이 키는 이 모듈에서만 사용할 것.
-import { collectNotifications, todayKst, type CalendarEvent, type Task } from '@kingtepad/shared';
+import {
+  collectNotifications,
+  todayKst,
+  type CalendarEvent,
+  type NotificationDraft,
+  type Task,
+} from '@kingtepad/shared';
 import { createClient } from '@supabase/supabase-js';
 import type { FastifyBaseLogger } from 'fastify';
 import webpush from 'web-push';
@@ -25,11 +31,16 @@ interface SubscriptionRow {
   auth: string;
 }
 
-export function startNotifier(log: FastifyBaseLogger) {
+export interface Notifier {
+  /** 모든 사용자(1인용)에게 알림을 넣고 바로 푸시한다. 사용자 요청 밖에서 생기는 알림(에이전트 모니터)용 */
+  notifyOwners(n: NotificationDraft): Promise<void>;
+}
+
+export function startNotifier(log: FastifyBaseLogger): Notifier | null {
   const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } = process.env;
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     log.warn('SUPABASE_SERVICE_ROLE_KEY 가 없어 알림 스케줄러를 끕니다.');
-    return;
+    return null;
   }
   const pushEnabled = !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
   if (pushEnabled) webpush.setVapidDetails(VAPID_SUBJECT ?? 'mailto:admin@example.com', VAPID_PUBLIC_KEY!, VAPID_PRIVATE_KEY!);
@@ -118,4 +129,17 @@ export function startNotifier(log: FastifyBaseLogger) {
   tick();
   setInterval(tick, INTERVAL_MS);
   log.info('알림 스케줄러 시작 (1분 주기)');
+
+  return {
+    async notifyOwners(n) {
+      const users = await db.auth.admin.listUsers();
+      if (users.error) throw new Error(users.error.message);
+      const rows = users.data.users.map((u) => ({ ...n, user_id: u.id }));
+      if (rows.length === 0) return;
+      const { error } = await db.from('notifications').upsert(rows, { onConflict: 'user_id,dedupe_key', ignoreDuplicates: true });
+      if (error) throw new Error(error.message);
+      // 다음 주기(최대 1분)를 기다리지 않고 바로 푸시. 진행 중이면 그 주기가 처리한다
+      tick();
+    },
+  };
 }

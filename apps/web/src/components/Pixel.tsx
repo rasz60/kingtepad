@@ -97,6 +97,18 @@ const ICONS = {
     '.ss.sss.ss.',
     '....sss....',
   ],
+  monitor: [
+    'kkkkkkkkkkk',
+    'kbbbbbbbbbk',
+    'kbgbbbbbbbk',
+    'kbbgbbbbbbk',
+    'kbgbbgggbbk',
+    'kbbbbbbbbbk',
+    'kbbbbbbbbbk',
+    'kkkkkkkkkkk',
+    '....kkk....',
+    '..kkkkkkk..',
+  ],
   floppy: [
     'kkkkkkkkkk.',
     'kbwwwwwwbkk',

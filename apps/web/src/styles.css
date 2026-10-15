@@ -244,6 +244,59 @@ button:disabled { opacity: .45; cursor: default; }
       var(--chrome-border) var(--gutter) calc(var(--gutter) + 1px),
       var(--editor-bg) calc(var(--gutter) + 1px));
 }
+/* 에이전트 모니터: 줄 번호 거터 위를 픽셀 오피스 + 로그로 꽉 채운다 */
+.monitor {
+  display: flex; flex-direction: column;
+  height: 100%;
+  background: var(--editor-bg);
+}
+.monitor-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--chrome-border);
+  background: var(--chrome-2);
+}
+.monitor-dot { width: 8px; height: 8px; border: 1px solid var(--ink); background: var(--num); }
+.monitor-online { background: #3ec46d; }
+.monitor-offline { background: var(--danger); }
+.monitor-bar .error { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.monitor-actions { margin-left: auto; display: inline-flex; gap: 6px; }
+.monitor-actions .btn-ghost { text-decoration: none; display: inline-flex; align-items: center; }
+.monitor-actions .btn-ghost[aria-pressed='true'] { background: var(--hover); border-color: var(--hover-border); }
+.monitor-body { flex: 1; min-height: 0; display: flex; }
+.monitor-office { flex: 1; min-width: 0; display: flex; }
+.monitor-frame { flex: 1; min-width: 0; border: 0; background: #0b0e14; }
+.monitor-log-off .monitor-log { display: none; }
+/* 오피스/로그 전환과 에이전트 요약은 모바일 전용 */
+.monitor-bar .monitor-seg, .monitor-agents { display: none; }
+.monitor-unread {
+  display: inline-block; min-width: 16px; margin-left: 4px; padding: 0 3px;
+  font-size: 10px; line-height: 14px; text-align: center;
+  background: var(--danger); color: #fff;
+}
+.monitor-agents { gap: 6px; padding: 6px 10px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--chrome-border); background: var(--chrome); }
+.monitor-agent {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  height: 28px; padding: 0 4px 0 8px;
+  border: 1px solid var(--chrome-border); background: var(--editor-bg);
+}
+.monitor-wait { flex: 1; padding: 16px; }
+.monitor-log {
+  width: 300px; flex-shrink: 0; overflow-y: auto;
+  border-left: 1px solid var(--chrome-border);
+}
+.monitor-empty { padding: 12px; }
+.monitor-entry { padding: 6px 10px; border-bottom: 1px dotted var(--fold); }
+.monitor-entry-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.monitor-entry-head .type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.monitor-status { padding: 0 4px; font-size: 11px; border: 1px solid var(--ink); background: var(--st-deleted-bg); color: var(--st-deleted); }
+.monitor-st-working, .monitor-st-running, .monitor-st-active { background: var(--st-progress-bg); color: var(--st-progress); }
+.monitor-st-waiting, .monitor-st-pending, .monitor-st-queued, .monitor-st-warning { background: var(--st-planned-bg); color: var(--st-planned); }
+.monitor-st-error, .monitor-st-failed { background: var(--st-delayed-bg); color: var(--st-delayed); }
+.monitor-st-complete, .monitor-st-done { background: var(--st-done-bg); color: var(--st-done); }
+.monitor-msg { word-break: break-all; }
+.monitor-time { font-size: 11px; line-height: 16px; }
+
 .doc {
   counter-reset: line;
   max-width: calc(95% + var(--gutter));
@@ -641,6 +694,7 @@ input[type='range']:focus { box-shadow: none; }
 .notif-alarm { background: var(--ev-work); }
 .notif-delayed { background: var(--st-delayed-bg); color: var(--st-delayed); }
 .notif-due_soon { background: var(--st-planned-bg); color: var(--st-planned); }
+.notif-agent { background: var(--st-progress-bg); color: var(--st-progress); }
 .notif-title, .notif-body { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .notif-body { color: var(--muted); font-size: 11px; line-height: 16px; }
 .push-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 10px; border-top: 1px solid var(--chrome-border); }
@@ -660,6 +714,7 @@ input[type='range']:focus { box-shadow: none; }
 }
 .toast-delayed { border-left-color: var(--danger); }
 .toast-due_soon { border-left-color: var(--num); }
+.toast-agent { border-left-color: var(--type); }
 .toast-main { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 6px 10px; text-align: left; }
 .toast-main strong, .toast-main span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .toast-main span { color: var(--muted); font-size: 11px; line-height: 16px; }
@@ -725,7 +780,7 @@ input[type='range']:focus { box-shadow: none; }
   .statusbar { display: none; }
   .tabs {
     order: 1;
-    display: grid; grid-template-columns: repeat(5, 1fr); gap: 0;
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 0;
     padding: 0 0 env(safe-area-inset-bottom);
     background: var(--chrome);
     border-top: 1px solid var(--chrome-border); border-bottom: 0;
@@ -739,6 +794,15 @@ input[type='range']:focus { box-shadow: none; }
   .tab.active { color: var(--text); background: var(--editor-bg); box-shadow: inset 0 3px 0 var(--tab-top); }
   .tab-file { display: none; }
   .tab-short { display: block; font-size: 11px; line-height: 13px; }
+
+  /* 에이전트 모니터: 오피스와 로그를 탭으로 나눠 각각 전체 높이로 쓴다 */
+  .monitor-conn, .monitor-actions .monitor-log-toggle { display: none; }
+  .monitor-bar { padding: 6px 10px; }
+  .monitor-bar .monitor-seg { display: inline-flex; }
+  .monitor-agents { display: flex; }
+  .monitor-view-log .monitor-agents, .monitor-view-log .monitor-office, .monitor-view-office .monitor-log { display: none; }
+  .monitor-view-log .monitor-log { display: block; flex: 1; width: auto; border-left: 0; }
+  .monitor-entry { padding: 8px 12px; }
 
   /* 업무 한 줄 → 두 줄: [상태][기간][진척] / [카테고리·제목] */
 

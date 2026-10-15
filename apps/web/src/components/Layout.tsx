@@ -14,10 +14,16 @@ const TABS: { to: string; file: string; short: string; icon: PixelName }[] = [
   { to: '/tasks', file: '업무.txt', short: '업무', icon: 'doc' },
   { to: '/calendar', file: '캘린더.ics', short: '캘린더', icon: 'calendar' },
   { to: '/reports', file: '보고서.md', short: '보고서', icon: 'chart' },
+  { to: '/monitor', file: '에이전트.exe', short: '에이전트', icon: 'monitor' },
   { to: '/settings', file: '설정.ini', short: '설정', icon: 'gear' },
 ];
 
-const FILE_TYPE: Record<string, string> = { md: 'Markdown', ini: 'MS ini file', ics: 'iCalendar file' };
+const FILE_TYPE: Record<string, string> = {
+  md: 'Markdown',
+  ini: 'MS ini file',
+  ics: 'iCalendar file',
+  exe: 'Executable',
+};
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 

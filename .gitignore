@@ -4,3 +4,10 @@ dev-dist/
 .env
 .env.local
 *.log
+
+# 배치 작업 (Python)
+__pycache__/
+*.pyc
+venv/
+jobs/.kis_token_cache.json
+jobs/watch_state*.json

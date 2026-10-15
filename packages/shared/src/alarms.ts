@@ -3,7 +3,8 @@ import { taskStatus } from './status';
 import type { CalendarEvent, DateStr, Task } from './types';
 import type { HolidaySet } from './workdays';
 
-export type NotificationKind = 'alarm' | 'delayed' | 'due_soon';
+/** agent = 배치 작업(에이전트 모니터)의 실패·완료 알림. API 가 상태를 받을 때 만든다 */
+export type NotificationKind = 'alarm' | 'delayed' | 'due_soon' | 'agent';
 
 /** 알림 한 건. notifications 테이블에 dedupe_key 로 한 번만 저장된다 */
 export interface NotificationDraft {

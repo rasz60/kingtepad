@@ -12,7 +12,7 @@ const TOAST_MS = 7_000;
 const TOAST_MAX = 3;
 const TOASTED_KEY = 'kp:toasted';
 
-const KIND_LABEL: Record<NotificationKind, string> = { alarm: '알람', delayed: '지연', due_soon: '마감 임박' };
+const KIND_LABEL: Record<NotificationKind, string> = { alarm: '알람', delayed: '지연', due_soon: '마감 임박', agent: '에이전트' };
 
 /** 알림함 데이터. 1분마다, 그리고 앱으로 돌아올 때 새 알림을 만들고 다시 불러온다 */
 function useNotifications() {
@@ -27,7 +27,13 @@ function useNotifications() {
     const id = setInterval(list.reload, POLL_MS);
     const onVisible = () => document.visibilityState === 'visible' && list.reload();
     document.addEventListener('visibilitychange', onVisible);
-    return () => (clearInterval(id), document.removeEventListener('visibilitychange', onVisible));
+    // 다른 화면에서 새 알림이 생겼다고 알려줄 때 (에이전트 모니터)
+    window.addEventListener('kp:notifications', list.reload);
+    return () => (
+      clearInterval(id),
+      document.removeEventListener('visibilitychange', onVisible),
+      window.removeEventListener('kp:notifications', list.reload)
+    );
   }, [list.reload]);
 
   const items = list.data ?? [];

@@ -5,6 +5,7 @@ import { Layout } from './components/Layout';
 import { AppProvider } from './lib/AppContext';
 import { Calendar } from './pages/Calendar';
 import { Login } from './pages/Login';
+import { Monitor } from './pages/Monitor';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
 import { TaskDetail } from './pages/TaskDetail';
@@ -28,6 +29,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="tasks/:id" element={<TaskDetail />} />
                 <Route path="calendar" element={<Calendar />} />
                 <Route path="reports" element={<Reports />} />
+                <Route path="monitor" element={<Monitor />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Route>

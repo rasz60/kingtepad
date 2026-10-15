@@ -4,14 +4,15 @@
 
 ```
 apps/web         React + Vite PWA   — CRUD는 Supabase 직접 호출 (RLS)
-apps/api         Fastify (Oracle Cloud) — 보고서·알림·AI 등 서버 작업
+apps/api         Fastify (Oracle Cloud) — 보고서·알림·에이전트 모니터 등 서버 작업
 packages/shared  상태/진척/영업일/빠른입력/보고서 로직 (web·api 공용)
+jobs/            배치 작업 (Python, pm2) — 주식 시세·나라장터 감시 → 에이전트 모니터로 상태 전송
 supabase/        DB 마이그레이션
 ```
 
 ## 1. Supabase 준비
 
-1. 프로젝트 생성 후 **SQL Editor**에서 `supabase/migrations/` 의 SQL을 파일명 순서대로 실행 (`init` → `events` → `alarms`)
+1. 프로젝트 생성 후 **SQL Editor**에서 `supabase/migrations/` 의 SQL을 파일명 순서대로 실행 (`init` → `events` → `alarms` → `agent_notifications`)
 2. **Authentication → Users → Add user**로 본인 계정 생성 (기본 카테고리 11개 자동 생성)
 3. **Authentication → Sign In / Providers → Allow new users to sign up 끄기** (1인용)
 4. **Settings → API**에서 URL과 `anon` 키 복사
@@ -29,12 +30,66 @@ npm run dev:api    # http://localhost:8080/health
 npm test           # 도메인 로직 테스트
 ```
 
-## 3. Oracle Cloud 배포
+## 3. Oracle Cloud 배포 (DuckDNS + Caddy + pm2)
 
-- **HTTPS 필수**: PWA 홈 화면 설치는 HTTPS에서만 동작한다. 도메인을 연결하고 Caddy를 쓰면 인증서가 자동 발급된다.
-- 웹: `npm run build -w @kingtepad/web` → `apps/web/dist`를 정적 서빙 (SPA라 모든 경로를 `index.html`로 fallback)
-- API: `npm run build -w @kingtepad/api` → `node --env-file=.env apps/api/dist/index.js` (systemd 또는 pm2)
-- 보안 목록(Security List)과 OS 방화벽에서 443 포트를 열 것
+PWA 설치·웹 푸시는 HTTPS 에서만 동작하므로 DuckDNS 도메인 + Caddy(인증서 자동 발급)를 쓴다. 아래 예시의 도메인은 `kingtepad.duckdns.org`.
+
+```
+https://kingtepad.duckdns.org        Caddy ─┬─ /api/*  → 127.0.0.1:8080  Fastify API (+ /api/monitor/ws WebSocket)
+                                            └─ 그 외   → apps/web/dist    정적 파일 (SPA)
+https://kingtepad.duckdns.org:8443   Caddy ─── 127.0.0.1:8081  픽셀 오피스 프록시 → pixel-agents (127.0.0.1:랜덤)
+jobs/*.py (pm2) ──POST http://127.0.0.1:8080/monitor/status
+```
+
+1. **DuckDNS**: duckdns.org 에서 서브도메인을 만들고 서버 공인 IP 를 넣는다 (Oracle 예약 IP 면 갱신 cron 불필요)
+2. **포트 열기**: Oracle Security List(또는 NSG)와 OS 방화벽에서 TCP `80`, `443`, `8443`. 기존 모니터의 `5000`, `5001` 은 닫는다
+   ```bash
+   # Oracle Ubuntu 이미지는 iptables 기본 차단
+   for p in 80 443 8443; do sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport $p -j ACCEPT; done
+   sudo netfilter-persistent save
+   ```
+3. **환경 변수**
+   - `apps/api/.env`: `HOST=127.0.0.1`, `CORS_ORIGIN=https://kingtepad.duckdns.org`, Supabase·VAPID 키, `MONITOR_INGEST_TOKEN`(임의의 긴 문자열)
+   - `apps/web/.env`: `VITE_API_URL=https://kingtepad.duckdns.org/api`, `VITE_MONITOR_OFFICE_URL=https://kingtepad.duckdns.org:8443`
+   - `jobs/.env`: `jobs/.env.example` 참고 (`MONITOR_INGEST_TOKEN` 은 API 와 같은 값, KIS 키)
+4. **빌드 · 실행**
+   ```bash
+   npm ci && npm run build
+   python3 -m venv venv && ./venv/bin/pip install -r jobs/requirements.txt
+   pm2 start ecosystem.config.cjs && pm2 save && pm2 startup
+   ```
+   업데이트: `git pull && npm ci && npm run build && pm2 startOrReload ecosystem.config.cjs`
+5. **Caddy**: `/etc/caddy/Caddyfile` 작성 후 `sudo systemctl reload caddy` (Caddy 사용자가 `apps/web/dist` 를 읽을 수 있어야 한다)
+   ```
+   kingtepad.duckdns.org {
+     encode gzip
+     handle_path /api/* {
+       reverse_proxy 127.0.0.1:8080
+     }
+     handle {
+       root * /home/ubuntu/kingtepad/apps/web/dist
+       try_files {path} /index.html
+       file_server
+     }
+   }
+
+   kingtepad.duckdns.org:8443 {
+     reverse_proxy 127.0.0.1:8081
+   }
+   ```
+
+### 에이전트 모니터 (구 pixel-agent-monitor)
+
+배치 작업 상태를 **에이전트.exe** 탭에 픽셀 오피스(pixel-agents 캐릭터)와 실시간 로그로 보여준다. 로그인은 업무일지 계정 하나로 끝난다.
+
+- API 가 시작될 때 `npx pixel-agents` 를 자식 프로세스로 띄운다 (첫 실행은 다운로드로 1분 정도). `MONITOR_PIXEL_AGENTS=0` 이면 끈다
+- 탭을 열면 웹이 Supabase 토큰으로 `POST /monitor/session` 을 불러 세션 쿠키를 받고, 그 쿠키로 WebSocket 로그와 픽셀 오피스(`:8443`)가 열린다
+- `ERROR` · `FAILED` · `COMPLETE` 상태는 🔔 알림함에 `에이전트` 알림으로 저장되고 웹 푸시로도 간다 (`SUPABASE_SERVICE_ROLE_KEY` 필요)
+- 상태 보내기: `POST /monitor/status` `{ "agentId": "worker1", "status": "WORKING", "message": "..." }`
+  - `WORKING`/`RUNNING`/`ACTIVE` 작업 중 · `WAITING`/`PENDING`/`QUEUED` 대기 · `ERROR`/`FAILED` 실패 · `COMPLETE`/`DONE`/`IDLE` 등 쉬는 중
+  - `MONITOR_INGEST_TOKEN` 을 설정했으면 `X-Monitor-Token` 헤더 필수. 비웠으면 같은 서버(127.0.0.1)에서 직접 보낸 요청만 받는다
+- 배치 작업: `jobs/run_stocks.py`(KIS 시세, 종목은 `jobs/stocks.json`), `jobs/watch_openg.py`(나라장터 개찰결과, 결과가 뜨면 `COMPLETE` 후 종료)
+- 로컬 개발: `npm run dev:api` 후 `apps/web/.env` 에 `VITE_API_URL=http://localhost:8080` (오피스는 `http://localhost:8081`)
 
 ### 알림 · 웹 푸시
 
@@ -46,21 +101,6 @@ npm test           # 도메인 로직 테스트
    - 푸시는 서비스 워커가 있는 빌드(HTTPS)에서만 동작한다. `npm run dev:web`에서는 비활성
 
 > API 스케줄러가 없어도 웹을 열면 알림이 생성·표시된다. 앱이 닫혀 있을 때의 배너·아이콘 숫자는 스케줄러가 있어야 한다.
-
-Caddyfile 예시:
-
-```
-diary.example.com {
-  handle_path /api/* {
-    reverse_proxy localhost:8080
-  }
-  handle {
-    root * /srv/kingtepad/web
-    try_files {path} /index.html
-    file_server
-  }
-}
-```
 
 ## 주요 개념
 
