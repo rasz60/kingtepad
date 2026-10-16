@@ -1,6 +1,6 @@
 import { todayKst, type Task, type WorkLog, type WorkLogInput } from '@kingtepad/shared';
 import { useState, type FormEvent } from 'react';
-import { createLog, updateLog } from '../lib/db';
+import { createLog, deleteLog, updateLog } from '../lib/db';
 import { notifyChanged } from '../lib/useAsync';
 import { MarkdownEditor } from './Markdown';
 import { Sheet } from './Sheet';
@@ -38,6 +38,19 @@ export function LogForm({
       const input = { ...form, progress: form.task_id ? form.progress : null };
       if (log) await updateLog(log.id, input);
       else await createLog(input);
+      notifyChanged();
+      onSaved();
+    } catch (err) {
+      setError((err as Error).message);
+      setSaving(false);
+    }
+  }
+
+  async function remove() {
+    if (!log || !window.confirm('일지를 삭제할까요?')) return;
+    setSaving(true);
+    try {
+      await deleteLog(log.id);
       notifyChanged();
       onSaved();
     } catch (err) {
@@ -116,6 +129,11 @@ export function LogForm({
         <MarkdownEditor value={form.content} onChange={(v) => set('content', v)} rows={6} />
         {error && <p className="error">{error}</p>}
         <div className="actions">
+          {log && (
+            <button type="button" className="btn-danger form-delete" disabled={saving} onClick={remove}>
+              삭제
+            </button>
+          )}
           <button type="button" className="btn-ghost" onClick={onClose}>
             취소
           </button>

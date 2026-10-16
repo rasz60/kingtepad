@@ -1,16 +1,21 @@
 import { formatMinutes, parseQuickEntry, taskStatus, todayKst, type Task, type WorkLog } from '@kingtepad/shared';
 import { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import { Link, useOutletContext } from 'react-router-dom';
+import type { LayoutContext } from '../components/Layout';
 import { LogForm } from '../components/LogForm';
-import { Markdown } from '../components/Markdown';
+import { LogLine } from '../components/LogLine';
 import { Empty } from '../components/Pixel';
 import { TaskRow } from '../components/TaskRow';
 import { useApp } from '../lib/AppContext';
 import { createLog, createTask, deleteLog, listLogs, listTasks } from '../lib/db';
 import { notifyChanged, useAsync } from '../lib/useAsync';
+import { useMobile } from '../lib/useMobile';
 
 export function Today() {
   const { holidays, categories } = useApp();
+  const { dock } = useOutletContext<LayoutContext>();
+  const mobile = useMobile();
   const today = todayKst();
 
   const tasks = useAsync(() => listTasks(), []);
@@ -78,35 +83,30 @@ export function Today() {
     }
   }
 
-  return (
-    <div className="doc">
-      <h1 className="ln h1">
-        <span className="op"># </span>오늘의 업무 일지 <span className="num">{today}</span>
-      </h1>
-      <p className="ln comment">
-        // 지연 {delayed.length} · 진행 {ongoing.length} · 오늘 {formatMinutes(todayMinutes)} 기록함
-      </p>
-
-      <form className="ln cmd" onSubmit={submitQuick}>
-        <span className="cmd-prompt">&gt;</span>
-        <input
-          value={quick}
-          onChange={(e) => setQuick(e.target.value)}
-          placeholder="#개발 로그인 API 수정 1h30m 60%"
-          aria-label="빠른 입력"
-        />
-        <select value={quickTask} onChange={(e) => setQuickTask(e.target.value)} aria-label="업무 선택">
-          <option value="">업무 선택 안 함</option>
-          {active.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.title}
-            </option>
-          ))}
-        </select>
-        <button className="btn-primary" disabled={!parsed.text}>
-          기록 ↵
-        </button>
-      </form>
+  const quickForm = (
+    <form className="ln cmd" onSubmit={submitQuick}>
+      <span className="cmd-prompt">&gt;</span>
+      <input
+        value={quick}
+        onChange={(e) => setQuick(e.target.value)}
+        placeholder="#개발 로그인 API 수정 1h30m 60%"
+        aria-label="빠른 입력"
+      />
+      <select value={quickTask} onChange={(e) => setQuickTask(e.target.value)} aria-label="업무 선택">
+        <option value="">{mobile ? '업무 ▾' : '업무 선택 안 함'}</option>
+        {active.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.title}
+          </option>
+        ))}
+      </select>
+      <button className="btn-primary" disabled={!parsed.text}>
+        기록 ↵
+      </button>
+    </form>
+  );
+  const quickHint = (
+    <>
       {quick && (
         <p className="ln cmd-preview">
           <span className="comment">// 해석: </span>
@@ -121,6 +121,33 @@ export function Today() {
         </p>
       )}
       {quickError && <p className="ln error">{quickError}</p>}
+    </>
+  );
+
+  return (
+    <div className="doc">
+      <h1 className="ln h1">
+        <span className="op"># </span>오늘의 업무 일지 <span className="num">{today}</span>
+      </h1>
+      <p className="ln comment today-summary">
+        // 지연 {delayed.length} · 진행 {ongoing.length} · 오늘 {formatMinutes(todayMinutes)} 기록함
+      </p>
+
+      {/* 모바일은 하단 탭 바로 위에 고정된 입력줄로 (해석 줄은 입력줄 위에) */}
+      {mobile && dock ? (
+        createPortal(
+          <div className="quick">
+            {quickHint}
+            {quickForm}
+          </div>,
+          dock,
+        )
+      ) : (
+        <>
+          {quickForm}
+          {quickHint}
+        </>
+      )}
 
       <TaskSection title="지연된 업무" tasks={delayed} empty="지연된 업무가 없어요!" />
       <TaskSection title="진행 중인 업무" tasks={ongoing} empty="진행 중인 업무가 없어요." />
@@ -130,30 +157,21 @@ export function Today() {
       </h2>
       {logs.data && todayLogs.length === 0 && <Empty>아직 오늘 기록이 없어요</Empty>}
       {todayLogs.map((l) => (
-        <div key={l.id} className="ln log-line">
-          <div className="log-head">
-            {l.task_id ? (
+        <LogLine
+          key={l.id}
+          log={l}
+          title={
+            l.task_id ? (
               <Link to={`/tasks/${l.task_id}`} className="kw log-title">
                 {taskTitle(l.task_id)}
               </Link>
             ) : (
               <span className="str log-title">일반 기록</span>
-            )}
-            <span className="log-meta">
-              <span className="dur">{formatMinutes(l.minutes)}</span>
-              {l.progress != null && <span className="num">→ {l.progress}%</span>}
-            </span>
-            <span className="log-actions">
-              <button className="link-btn" onClick={() => setEditingLog(l)}>
-                수정
-              </button>
-              <button className="link-btn danger" onClick={() => removeLog(l.id)}>
-                삭제
-              </button>
-            </span>
-          </div>
-          <Markdown source={l.content} />
-        </div>
+            )
+          }
+          onEdit={() => setEditingLog(l)}
+          onDelete={() => removeLog(l.id)}
+        />
       ))}
 
       {editingLog && (
@@ -168,13 +186,16 @@ export function Today() {
   );
 }
 
+/** 비어 있으면 모바일에서는 거북이 없이 제목 한 줄로 접힌다 */
 function TaskSection({ title, tasks, empty }: { title: string; tasks: Task[]; empty: string }) {
   return (
     <>
-      <h2 className="ln section">
-        <span className="op">## </span>{title} <span className="num">({tasks.length})</span>
+      <h2 className={`ln section${tasks.length === 0 ? ' section-empty' : ''}`}>
+        <span className="op">## </span>
+        {title} <span className="num">({tasks.length})</span>
+        {tasks.length === 0 && <span className="section-ok"> ✓</span>}
       </h2>
-      {tasks.length === 0 ? <Empty>{empty}</Empty> : tasks.map((t) => <TaskRow key={t.id} task={t} />)}
+      {tasks.length === 0 ? <Empty className="m-hide">{empty}</Empty> : tasks.map((t) => <TaskRow key={t.id} task={t} />)}
     </>
   );
 }

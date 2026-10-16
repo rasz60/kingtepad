@@ -10,6 +10,7 @@ import {
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { LogForm } from '../components/LogForm';
+import { LogLine } from '../components/LogLine';
 import { Markdown } from '../components/Markdown';
 import { Empty, Pixel } from '../components/Pixel';
 import { ProgressBar, StatusBadge } from '../components/StatusBadge';
@@ -56,7 +57,7 @@ export function TaskDetail() {
         {t.title} <StatusBadge status={taskStatus(t, today, holidays)} />
       </h1>
 
-      <p className="ln op">---</p>
+      <p className="ln op fm-rule">---</p>
       <Prop k="카테고리">
         <span className="kw">
           <i className="swatch" style={{ background: cat?.color ?? '#94a3b8' }} />
@@ -91,7 +92,7 @@ export function TaskDetail() {
           ))}
         </Prop>
       )}
-      <p className="ln op">---</p>
+      <p className="ln op fm-rule">---</p>
 
       <div className="ln actions">
         {t.deleted_at ? (
@@ -133,26 +134,13 @@ export function TaskDetail() {
       </h2>
       {logs.data?.length === 0 && <Empty>첫 일지를 써 볼까요?</Empty>}
       {(logs.data ?? []).map((l) => (
-        <div key={l.id} className="ln log-line">
-          <div className="log-head">
-            <span className="num log-title">{l.log_date}</span>
-            <span className="log-meta">
-              <span className="dur">{formatMinutes(l.minutes)}</span>
-              {l.progress != null && <span className="num">→ {l.progress}%</span>}
-            </span>
-            {!t.deleted_at && (
-              <span className="log-actions">
-                <button className="link-btn" onClick={() => setLogForm({ log: l })}>
-                  수정
-                </button>
-                <button className="link-btn danger" onClick={() => act(() => deleteLog(l.id), '일지를 삭제할까요?')}>
-                  삭제
-                </button>
-              </span>
-            )}
-          </div>
-          <Markdown source={l.content} />
-        </div>
+        <LogLine
+          key={l.id}
+          log={l}
+          title={<span className="num log-title">{l.log_date}</span>}
+          onEdit={t.deleted_at ? undefined : () => setLogForm({ log: l })}
+          onDelete={t.deleted_at ? undefined : () => act(() => deleteLog(l.id), '일지를 삭제할까요?')}
+        />
       ))}
 
       {editing && <TaskForm task={t} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} />}

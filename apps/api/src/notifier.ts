@@ -12,6 +12,8 @@ import type { FastifyBaseLogger } from 'fastify';
 import webpush from 'web-push';
 
 const INTERVAL_MS = 60_000;
+// 알림의 link 는 업무일지 앱 안의 경로(/tasks/…). 푸시를 누르면 포털 서비스워커가 이 주소를 연다
+const APP_BASE = (process.env.APP_BASE_PATH ?? '/diary').replace(/\/$/, '');
 
 type Owned<T> = T & { user_id: string };
 
@@ -97,7 +99,7 @@ export function startNotifier(log: FastifyBaseLogger): Notifier | null {
 
       for (const n of rows.filter((r) => r.created_at >= since)) {
         for (const s of (subs.data as SubscriptionRow[]).filter((s) => s.user_id === n.user_id)) {
-          const payload = JSON.stringify({ title: n.title, body: n.body, url: n.link, tag: n.id, badge: badge(n.user_id) });
+          const payload = JSON.stringify({ title: n.title, body: n.body, url: `${APP_BASE}${n.link}`, tag: n.id, badge: badge(n.user_id) });
           try {
             await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
           } catch (e) {

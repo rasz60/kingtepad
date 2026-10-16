@@ -163,19 +163,6 @@ export async function clearReadNotifications(): Promise<void> {
   must(await supabase.from('notifications').delete().not('read_at', 'is', null));
 }
 
-export async function savePushSubscription(sub: PushSubscriptionJSON): Promise<void> {
-  must(
-    await supabase.from('push_subscriptions').upsert(
-      { endpoint: sub.endpoint, p256dh: sub.keys?.p256dh, auth: sub.keys?.auth, user_agent: navigator.userAgent },
-      { onConflict: 'endpoint' },
-    ),
-  );
-}
-
-export async function deletePushSubscription(endpoint: string): Promise<void> {
-  must(await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint));
-}
-
 /** 진행 중인 업무의 기간 안팎 로그를 함께 보기 위해 업무를 id 목록으로 조회 */
 export async function getTasksByIds(ids: string[]): Promise<Task[]> {
   if (ids.length === 0) return [];

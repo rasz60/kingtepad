@@ -19,7 +19,7 @@ import {
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { EventForm } from '../components/EventForm';
-import { Markdown } from '../components/Markdown';
+import { LogLine } from '../components/LogLine';
 import { Empty, Pixel } from '../components/Pixel';
 import { TaskRow } from '../components/TaskRow';
 import { useApp } from '../lib/AppContext';
@@ -147,7 +147,7 @@ export function Calendar() {
         </button>
       </div>
       <div className="ln cal-filter" role="group" aria-label="표시할 일정">
-        <span className="comment">// 보기:</span>
+        <span className="comment m-hide">// 보기:</span>
         {LAYERS.map((l) => (
           <button
             key={l.value}
@@ -391,20 +391,19 @@ function DayView({
       </h2>
       {logs.length === 0 && <Empty>이 날 기록이 없어요</Empty>}
       {logs.map((l) => (
-        <div key={l.id} className="ln log-line">
-          <div className="log-head">
-            {l.task_id ? (
-              <Link to={`/tasks/${l.task_id}`} className="kw">
+        <LogLine
+          key={l.id}
+          log={l}
+          title={
+            l.task_id ? (
+              <Link to={`/tasks/${l.task_id}`} className="kw log-title">
                 {taskTitle(l.task_id)}
               </Link>
             ) : (
-              <span className="str">일반 기록</span>
-            )}
-            <span className="dur">{formatMinutes(l.minutes)}</span>
-            {l.progress != null && <span className="num">→ {l.progress}%</span>}
-          </div>
-          <Markdown source={l.content} />
-        </div>
+              <span className="str log-title">일반 기록</span>
+            )
+          }
+        />
       ))}
     </>
   );

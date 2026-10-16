@@ -14,16 +14,18 @@ export function TaskRow({ task }: { task: Task }) {
     <Link to={`/tasks/${task.id}`} className="ln task-line">
       <StatusBadge status={taskStatus(task, today, holidays)} />
       <span className="task-main">
-        <span className="kw">
+        <span className="kw" title={cat?.name ?? '미분류'}>
           <i className="swatch" style={{ background: cat?.color ?? '#94a3b8' }} />
-          {cat?.name ?? '미분류'}
-        </span>{' '}
+          <span className="task-cat">{cat?.name ?? '미분류'} </span>
+        </span>
         <span className="task-title">{task.title}</span>
-        {task.tags.map((t) => (
-          <span key={t} className="str">
-            {' '}"{t}"
-          </span>
-        ))}
+        <span className="task-tags">
+          {task.tags.map((t) => (
+            <span key={t} className="str">
+              {' '}"{t}"
+            </span>
+          ))}
+        </span>
       </span>
       <span className="num task-period">
         {task.planned_start.slice(5)}~{task.planned_end.slice(5)}

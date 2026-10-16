@@ -1,15 +1,12 @@
 import type { Category } from '@kingtepad/shared';
 import { useState } from 'react';
 import { AGENT_STATUS_URL, AgentTokenSetting } from '../components/AgentToken';
-import { InstallSetting } from '../components/Install';
-import { PushToggle } from '../components/Notifications';
 import { useApp } from '../lib/AppContext';
 import { deleteCategory, saveCategory } from '../lib/db';
-import { supabase } from '../lib/supabase';
 
 /** .ini 파일처럼 보이는 설정 */
 export function Settings() {
-  const { session, categories, reloadCategories } = useApp();
+  const { categories, reloadCategories } = useApp();
   const [newName, setNewName] = useState('');
   const [error, setError] = useState('');
 
@@ -92,15 +89,6 @@ export function Settings() {
       {error && <p className="ln error">{error}</p>}
 
       <p className="ln">&nbsp;</p>
-      <p className="ln ini-section">[알림]</p>
-      <p className="ln comment">; 일정·업무 알람, 지연 업무, 내일 마감 업무 (매일 09시)</p>
-      <div className="ln ini-row">
-        <span className="type ini-key">push</span>
-        <span className="op">=</span>
-        <PushToggle />
-      </div>
-
-      <p className="ln">&nbsp;</p>
       <p className="ln ini-section">[에이전트]</p>
       <p className="ln comment">; 배치 잡의 jobs/.env 에 아래 두 값을 넣으면 그 잡의 로그·알림이 이 계정으로 와요</p>
       <p className="ln comment">; (토큰은 비밀번호처럼 다뤄 주세요. 픽셀 오피스는 모든 계정이 같이 봐요)</p>
@@ -116,26 +104,7 @@ export function Settings() {
       </div>
 
       <p className="ln">&nbsp;</p>
-      <p className="ln ini-section">[앱]</p>
-      <p className="ln comment">; 홈 화면에 설치하면 전체 화면으로 열려요 (아이폰 푸시는 설치한 앱에서만)</p>
-      <div className="ln ini-row">
-        <span className="type ini-key">install</span>
-        <span className="op">=</span>
-        <InstallSetting />
-      </div>
-
-      <p className="ln">&nbsp;</p>
-      <p className="ln ini-section">[계정]</p>
-      <div className="ln ini-row">
-        <span className="type ini-key">email</span>
-        <span className="op">=</span>
-        <span className="str">{session?.user.email}</span>
-        <span className="ini-actions">
-          <button className="btn-ghost" onClick={() => supabase.auth.signOut()}>
-            로그아웃
-          </button>
-        </span>
-      </div>
+      <p className="ln comment">; 계정 · 비밀번호 · 푸시 알림 · 앱 설치는 ae:p 홈의 계정 메뉴에서</p>
     </div>
   );
 }

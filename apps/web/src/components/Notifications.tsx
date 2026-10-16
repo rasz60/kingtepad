@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../lib/AppContext';
 import { clearReadNotifications, generateNotifications, listNotifications, markNotificationsRead } from '../lib/db';
-import { disablePush, enablePush, getPushState, setAppBadge, type PushState } from '../lib/push';
+import { setAppBadge } from '../lib/push';
 import { useAsync } from '../lib/useAsync';
 import { Pixel } from './Pixel';
 
@@ -110,7 +110,7 @@ export function NotificationCenter() {
               </button>
             ))}
           </div>
-          <PushToggle />
+          <p className="push-hint comment">// 푸시 알림은 <a href="/">ae:p 홈</a> → 계정 메뉴에서 켜요</p>
         </div>
       )}
 
@@ -168,46 +168,6 @@ function Toasts({
           </button>
         </div>
       ))}
-    </div>
-  );
-}
-
-const PUSH_TEXT: Record<PushState, string> = {
-  unsupported: '이 환경에서는 푸시 알림을 쓸 수 없어요.',
-  'ios-install': '아이폰은 공유 → "홈 화면에 추가"로 설치한 앱에서 푸시를 받을 수 있어요.',
-  denied: '알림이 차단돼 있어요. 브라우저/기기 설정에서 허용해 주세요.',
-  off: '이 기기로 푸시 알림(배너·아이콘 숫자)을 받을 수 있어요.',
-  on: '이 기기에서 푸시 알림을 받고 있어요.',
-};
-
-/** 이 기기의 웹 푸시 구독 켜기/끄기 */
-export function PushToggle() {
-  const state = useAsync(getPushState, []);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  async function toggle() {
-    setBusy(true);
-    setError('');
-    try {
-      await (state.data === 'on' ? disablePush() : enablePush());
-    } catch (e) {
-      setError((e as Error).message);
-    }
-    setBusy(false);
-    state.reload();
-  }
-
-  if (!state.data) return null;
-  return (
-    <div className="push-toggle">
-      <span className="comment">// {PUSH_TEXT[state.data]}</span>
-      {(state.data === 'on' || state.data === 'off') && (
-        <button className={state.data === 'on' ? 'btn-ghost' : 'btn-primary'} disabled={busy} onClick={toggle}>
-          {state.data === 'on' ? '푸시 끄기' : '푸시 받기'}
-        </button>
-      )}
-      {error && <span className="error">{error}</span>}
     </div>
   );
 }

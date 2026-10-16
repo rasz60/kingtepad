@@ -197,6 +197,19 @@ const ICONS = {
     'kwwwwk....',
     'kkkkkk....',
   ],
+  home: [
+    '.....k.....',
+    '....krk....',
+    '...krrrk...',
+    '..krrrrrk..',
+    '.krrrrrrrk.',
+    'kkkkkkkkkkk',
+    '.kwwwwwwwk.',
+    '.kwllwoowk.',
+    '.kwllwoowk.',
+    '.kwwwwoowk.',
+    '.kkkkkkkkk.',
+  ],
   turtle: [
     '..kkkkkkk......',
     '.kgdgggdgk.kkk.',
@@ -238,9 +251,9 @@ export function Pixel({ name, scale = 1.5, className }: { name: PixelName; scale
 }
 
 /** 빈 상태: 픽셀 거북이 + 말풍선 */
-export function Empty({ children }: { children: string }) {
+export function Empty({ children, className }: { children: string; className?: string }) {
   return (
-    <div className="ln empty">
+    <div className={`ln empty ${className ?? ''}`}>
       <Pixel name="turtle" scale={2} />
       <span className="bubble">{children}</span>
     </div>

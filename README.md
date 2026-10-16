@@ -30,27 +30,30 @@ npm run dev:api    # http://localhost:8080/health
 npm test           # 도메인 로직 테스트
 ```
 
-## 3. Oracle Cloud 배포 (DuckDNS + Caddy + pm2)
+## 3. Oracle Cloud 배포 (ae:p 포털 아래 `/diary/`)
 
-PWA 설치·웹 푸시는 HTTPS 에서만 동작하므로 DuckDNS 도메인 + Caddy(인증서 자동 발급)를 쓴다. 아래 예시의 도메인은 `kingtepad.duckdns.org`.
+업무일지는 **ae:p 포털(`rasz60/ae2p`) 도메인의 `/diary/` 경로**에서 돈다. 로그인 · PWA 설치 · 웹 푸시 구독 · 앱 전환 버튼은 포털이 맡고,
+이 저장소는 업무일지 화면과 API(알림 스케줄러 · 푸시 발송 · 에이전트 모니터)만 맡는다. 도메인 전체 Caddy 설정은 포털 저장소의 `deploy/Caddyfile`.
 
 ```
-https://kingtepad.duckdns.org        Caddy ─┬─ /api/*  → 127.0.0.1:8080  Fastify API (+ /api/monitor/ws WebSocket)
-                                            └─ 그 외   → apps/web/dist    정적 파일 (SPA)
-https://kingtepad.duckdns.org:8443   Caddy ─── 127.0.0.1:8081  픽셀 오피스 프록시 → pixel-agents (127.0.0.1:랜덤)
+https://ae2p.duckdns.org/diary/*       Caddy ─── apps/web/dist         (base '/diary/' 로 빌드한 SPA)
+https://ae2p.duckdns.org/api/diary/*   Caddy ─── 127.0.0.1:8080        Fastify API (+ /api/diary/monitor/ws WebSocket)
+https://ae2p.duckdns.org:8443          Caddy ─── 127.0.0.1:8081        픽셀 오피스 프록시 → pixel-agents
+https://kingtepad.duckdns.org/*        Caddy ─── ae2p.duckdns.org/diary/* 로 리디렉트 (예전 주소)
 jobs/*.py (pm2) ──POST http://127.0.0.1:8080/monitor/status
 ```
 
-1. **DuckDNS**: duckdns.org 에서 서브도메인을 만들고 서버 공인 IP 를 넣는다 (Oracle 예약 IP 면 갱신 cron 불필요)
-2. **포트 열기**: Oracle Security List(또는 NSG)와 OS 방화벽에서 TCP `80`, `443`, `8443`. 기존 모니터의 `5000`, `5001` 은 닫는다
+1. **포털 먼저**: 포털 저장소 README 대로 `ae2p.duckdns.org` 를 올린다 (같은 Supabase 프로젝트 · 같은 서버)
+2. **포트 열기**: Oracle Security List(또는 NSG)와 OS 방화벽에서 TCP `80`, `443`, `8443`
    ```bash
    # Oracle Ubuntu 이미지는 iptables 기본 차단
    for p in 80 443 8443; do sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport $p -j ACCEPT; done
    sudo netfilter-persistent save
    ```
 3. **환경 변수**
-   - `apps/api/.env`: `HOST=127.0.0.1`, `CORS_ORIGIN=https://kingtepad.duckdns.org`, Supabase·VAPID 키, `MONITOR_INGEST_TOKEN`(임의의 긴 문자열)
-   - `apps/web/.env`: `VITE_API_URL=https://kingtepad.duckdns.org/api`, `VITE_MONITOR_OFFICE_URL=https://kingtepad.duckdns.org:8443`
+   - `apps/api/.env`: `HOST=127.0.0.1`, `CORS_ORIGIN=https://ae2p.duckdns.org`, `APP_BASE_PATH=/diary`, Supabase·VAPID 키, `MONITOR_INGEST_TOKEN`(임의의 긴 문자열)
+   - `apps/web/.env`: `VITE_API_URL=https://ae2p.duckdns.org/api/diary`, `VITE_MONITOR_OFFICE_URL=https://ae2p.duckdns.org:8443` (Supabase 값은 포털과 같게)
+   - 포털 `.env` 의 `VITE_VAPID_PUBLIC_KEY` 에 이 API 의 `VAPID_PUBLIC_KEY` 를 넣는다 (구독은 포털, 발송은 이 API)
    - `jobs/.env`: `jobs/.env.example` 참고 (`MONITOR_INGEST_TOKEN` 은 API 와 같은 값, KIS 키)
 4. **빌드 · 실행**
    ```bash
@@ -59,24 +62,7 @@ jobs/*.py (pm2) ──POST http://127.0.0.1:8080/monitor/status
    pm2 start ecosystem.config.cjs && pm2 save && pm2 startup
    ```
    업데이트: `main` 에 push 하면 자동 배포된다 (아래 6). 수동으로는 `bash scripts/deploy.sh`
-5. **Caddy**: `/etc/caddy/Caddyfile` 작성 후 `sudo systemctl reload caddy` (Caddy 사용자가 `apps/web/dist` 를 읽을 수 있어야 한다)
-   ```
-   kingtepad.duckdns.org {
-     encode gzip
-     handle_path /api/* {
-       reverse_proxy 127.0.0.1:8080
-     }
-     handle {
-       root * /home/ubuntu/kingtepad/apps/web/dist
-       try_files {path} /index.html
-       file_server
-     }
-   }
-
-   kingtepad.duckdns.org:8443 {
-     reverse_proxy 127.0.0.1:8081
-   }
-   ```
+5. **Caddy**: 포털 저장소의 `deploy/Caddyfile` 로 `/etc/caddy/Caddyfile` 을 바꾸고 `sudo systemctl reload caddy`
 6. **자동 배포 (GitHub Actions)**: `main` 에 push → 타입체크·테스트 → 서버에 SSH 로 접속해 [scripts/deploy.sh](scripts/deploy.sh) 실행
    (최신 main 받기 → `npm ci` → 빌드 → 필요하면 pip → `pm2 startOrReload`). 빌드가 실패하면 pm2 는 건드리지 않는다.
    최초 1회 설정:
@@ -85,9 +71,9 @@ jobs/*.py (pm2) ──POST http://127.0.0.1:8080/monitor/status
    ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/gha_deploy -N ""
    echo "command=\"bash $HOME/kingtepad/scripts/deploy.sh\",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty $(cat ~/.ssh/gha_deploy.pub)" >> ~/.ssh/authorized_keys
    cat ~/.ssh/gha_deploy            # → Secret DEPLOY_SSH_KEY 에 붙여 넣고, 서버의 이 파일은 지운다
-   ssh-keyscan -t ed25519 localhost | sed 's/^localhost/kingtepad.duckdns.org/'   # → Secret DEPLOY_KNOWN_HOSTS
+   ssh-keyscan -t ed25519 localhost | sed 's/^localhost/ae2p.duckdns.org/'   # → Secret DEPLOY_KNOWN_HOSTS
    ```
-   GitHub 저장소 → Settings → Secrets and variables → Actions 에 `DEPLOY_HOST`(kingtepad.duckdns.org), `DEPLOY_USER`(ubuntu),
+   GitHub 저장소 → Settings → Secrets and variables → Actions 에 `DEPLOY_HOST`(ae2p.duckdns.org), `DEPLOY_USER`(ubuntu),
    `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` 를 넣는다. 서버의 `git pull` 은 읽기 전용 배포 키(Deploy key)로 동작해야 한다.
    진행 상황은 저장소 **Actions** 탭에서 본다. 수동 실행은 Actions → deploy → Run workflow.
 
