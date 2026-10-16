@@ -59,22 +59,25 @@ export function Layout() {
   const activeTasks = useAsync(async () => (await listTasks()).filter((t) => t.progress < 100), []);
 
   const tab = [...TABS, MONITOR].find((t) => isUnder(location.pathname, t.to)) ?? TABS[0]!;
+  // 에이전트 모니터는 포털에서 별도 앱으로 들어온다: 업무일지 버튼·탭·상태 표시줄 없이 보여 준다
+  const agent = tab === MONITOR;
+  const appName = agent ? 'ae:p' : '업무일지++';
   const dow = DOW[new Date(`${today}T00:00:00+09:00`).getDay()];
 
   useEffect(() => {
-    document.title = `${tab.file} - 업무일지++`;
-  }, [tab.file]);
+    document.title = `${tab.file} - ${appName}`;
+  }, [tab.file, appName]);
 
   // Notepad++ 스타일 단축키: Alt+N 새 업무, Alt+L 일지
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!e.altKey) return;
+      if (!e.altKey || agent) return;
       if (e.key === 'n' || e.key === 'N') (e.preventDefault(), setModal('task'));
       if (e.key === 'l' || e.key === 'L') (e.preventDefault(), setModal('log'));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [agent]);
 
   function search(e: FormEvent) {
     e.preventDefault();
@@ -84,9 +87,9 @@ export function Layout() {
   return (
     <div className="window">
       <header className="titlebar">
-        <Pixel name="turtle" scale={1.4} />
+        <Pixel name={agent ? 'monitor' : 'turtle'} scale={1.4} />
         <span className="titlebar-text">
-          {tab.file} - 업무일지++
+          {tab.file} - {appName}
         </span>
         <span className="win-buttons" aria-hidden>
           <i>_</i>
@@ -100,43 +103,49 @@ export function Layout() {
         <aep-switcher mode="inline" className="tool-switcher" />
         {/* 모바일 전용: 타이틀바 대신 거북이 + 지금 파일 이름 */}
         <span className="tool-brand">
-          <Pixel name="turtle" scale={1.4} />
+          <Pixel name={agent ? 'monitor' : 'turtle'} scale={1.4} />
           <span className="tool-brand-text">{tab.file}</span>
         </span>
-        <button className="tool" onClick={() => setModal('task')} title="새 업무 (Alt+N)">
-          <Pixel name="plus" />
-          <span>새 업무</span>
-        </button>
-        <button className="tool" onClick={() => setModal('log')} title="일지 쓰기 (Alt+L)">
-          <Pixel name="pencil" />
-          <span>일지 쓰기</span>
-        </button>
-        <span className="tool-sep" />
-        <form className="tool-search" onSubmit={search}>
-          <Pixel name="search" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="찾기…" aria-label="업무 검색" />
-        </form>
+        {!agent && (
+          <>
+            <button className="tool" onClick={() => setModal('task')} title="새 업무 (Alt+N)">
+              <Pixel name="plus" />
+              <span>새 업무</span>
+            </button>
+            <button className="tool" onClick={() => setModal('log')} title="일지 쓰기 (Alt+L)">
+              <Pixel name="pencil" />
+              <span>일지 쓰기</span>
+            </button>
+            <span className="tool-sep" />
+            <form className="tool-search" onSubmit={search}>
+              <Pixel name="search" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="찾기…" aria-label="업무 검색" />
+            </form>
+          </>
+        )}
         <span className="tool-date">
           {today} ({dow})
         </span>
         <NotificationCenter />
       </div>
 
-      <nav className="tabs">
-        {/* 포털 홈 (다른 빌드라 라우터 링크가 아니라 페이지 이동) */}
-        <a href="/" className="tab tab-back" aria-label="ae:p 홈">
-          <Pixel name="home" scale={1.2} />
-          <span className="tab-file">홈</span>
-          <span className="tab-short">홈</span>
-        </a>
-        {TABS.map((t) => (
-          <NavLink key={t.to} to={t.to} end={t.to === '/'} className="tab" aria-label={t.short}>
-            <Pixel name={t.icon} scale={1.2} />
-            <span className="tab-file">{t.file}</span>
-            <span className="tab-short">{t.short}</span>
-          </NavLink>
-        ))}
-      </nav>
+      {!agent && (
+        <nav className="tabs">
+          {/* 포털 홈 (다른 빌드라 라우터 링크가 아니라 페이지 이동) */}
+          <a href="/" className="tab tab-back" aria-label="ae:p 홈">
+            <Pixel name="home" scale={1.2} />
+            <span className="tab-file">홈</span>
+            <span className="tab-short">홈</span>
+          </a>
+          {TABS.map((t) => (
+            <NavLink key={t.to} to={t.to} end={t.to === '/'} className="tab" aria-label={t.short}>
+              <Pixel name={t.icon} scale={1.2} />
+              <span className="tab-file">{t.file}</span>
+              <span className="tab-short">{t.short}</span>
+            </NavLink>
+          ))}
+        </nav>
+      )}
 
       <main className="editor">
         <Outlet context={{ dock } satisfies LayoutContext} />
@@ -146,8 +155,12 @@ export function Layout() {
 
       <footer className="statusbar">
         <span className="sb-grow">{FILE_TYPE[tab.file.split('.').pop()!] ?? 'Normal text file'}</span>
-        <span>오늘 투입: {formatMinutes(todayMinutes)}</span>
-        <span className="sb-hide">일지 {todayLogs.data?.length ?? 0}개</span>
+        {!agent && (
+          <>
+            <span>오늘 투입: {formatMinutes(todayMinutes)}</span>
+            <span className="sb-hide">일지 {todayLogs.data?.length ?? 0}개</span>
+          </>
+        )}
         <span className="sb-hide">Asia/Seoul</span>
         <span className="sb-hide">UTF-8</span>
         <span>INS</span>
