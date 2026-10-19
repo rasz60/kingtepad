@@ -213,8 +213,15 @@ button:disabled { opacity: .45; cursor: default; }
 .tool-search input { width: 180px; height: 24px; }
 .tool-date { margin-left: auto; padding-right: 6px; color: var(--muted); }
 .tool-brand { display: none; } /* 모바일 전용 */
-/* ae:p 앱 전환 버튼 (포털 switcher.js). 스크립트가 아직 안 붙었으면 자리만 */
-.tool-switcher { display: inline-flex; align-items: center; min-width: 36px; height: 36px; margin-right: 4px; }
+/* ae:p 앱 전환 버튼 (포털 switcher.js). 스크립트가 아직 안 붙었으면 자리만.
+   툴바(34px) 안에 들어가게 28px 로 줄이고, 펼친 메뉴가 탭·본문(position: relative) 밑에 깔리지 않게
+   알림 패널(40)보다 위 · 대화상자(50)보다 아래 층에 둔다 */
+.tool-switcher {
+  --aep-switcher-size: 28px;
+  position: relative; z-index: 45;
+  display: inline-flex; align-items: center; flex: none;
+  min-width: var(--aep-switcher-size); height: var(--aep-switcher-size); margin-right: 4px;
+}
 
 .tabs {
   display: flex; align-items: flex-end; gap: 2px;
@@ -825,6 +832,7 @@ input[type='range']:focus { box-shadow: none; }
     padding: env(safe-area-inset-top) 4px 0 10px;
     background: var(--title-bg);
   }
+  .tool-switcher { --aep-switcher-size: 34px; }
   .tool-brand { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
   .tool-brand-text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 15px / 20px var(--font-big); }
   .tool { height: 36px; padding: 0 10px; }
