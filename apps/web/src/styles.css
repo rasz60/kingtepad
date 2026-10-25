@@ -14,17 +14,17 @@
   /* 편집 영역 */
   --editor-bg: #ffffff;
   --gutter-bg: #e4e4e4;
-  --gutter-fg: #8a8a8a;
+  --gutter-fg: #6e6e6e;
   --curline: #e8e8ff;
   --fold: #c8c8c8;
   --text: #1b1b1f;
-  --muted: #7a7a7a;
+  --muted: #666666;
 
   /* 문법 강조 */
   --kw: #1f4fff;
-  --num: #e06c00;
-  --comment: #2e8b3a;
-  --str: #7a7a7a;
+  --num: #b05200;
+  --comment: #25782f;
+  --str: #666666;
   --op: #1d2a7a;
   --type: #7b3fe4;
   --dur: #c2185b;
@@ -79,15 +79,15 @@
 
     --editor-bg: #293134;
     --gutter-bg: #2f393c;
-    --gutter-fg: #81969a;
+    --gutter-fg: #93a6aa;
     --curline: #343f43;
     --fold: #4a575c;
     --text: #e0e2e4;
-    --muted: #8d9ba1;
+    --muted: #9aa8ae;
 
     --kw: #93c763;
     --num: #ffcd22;
-    --comment: #7d8c93;
+    --comment: #98a8ae;
     --str: #ec7600;
     --op: #e8e2b7;
     --type: #b39ddb;
@@ -153,6 +153,9 @@ input[type='checkbox'] { height: auto; accent-color: var(--focus); }
 
 /* ── 버튼 (픽셀 하드 섀도) ─────────────── */
 button { cursor: pointer; border: 0; background: none; padding: 0; }
+/* 키보드로 움직일 때만 보이는 포커스 테두리 (픽셀 UI 라 둥글리지 않는다) */
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
 button:disabled { opacity: .45; cursor: default; }
 .btn-primary, .btn-ghost, .btn-danger {
   display: inline-flex; align-items: center; gap: 6px;
@@ -455,16 +458,27 @@ button:disabled { opacity: .45; cursor: default; }
 .actions:hover { background: none; box-shadow: none; }
 
 /* ── 마크다운 ─────────────────────────── */
+/* 길게 읽는 본문(일지 · 업무 설명 · 보고서)은 데스크톱에서도 읽기 폰트로. 줄 높이는 편집기 줄(--lh)에 맞추고
+   머리글 · 코드는 픽셀 폰트로 남겨 편집기 느낌을 지킨다 */
+.markdown {
+  font: 14px / var(--lh) var(--font-read);
+  -webkit-font-smoothing: antialiased;
+  max-width: 46em;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.markdown h1, .markdown h2, .markdown h3, .markdown h4 { font: 700 15px / var(--lh) var(--font-big); -webkit-font-smoothing: none; }
 .markdown > :first-child { margin-top: 0; }
 .markdown > :last-child { margin-bottom: 0; }
 .markdown p, .markdown ul, .markdown ol, .markdown pre, .markdown table { margin: 0 0 4px; }
 .markdown ul, .markdown ol { padding-left: 18px; }
 .markdown ul { list-style: square; }
-.markdown h1, .markdown h2, .markdown h3, .markdown h4 { margin: 6px 0 2px; color: var(--md-h); font-weight: 700; font-size: inherit; }
+.markdown h1, .markdown h2, .markdown h3, .markdown h4 { margin: 6px 0 2px; color: var(--md-h); }
 .markdown h1::before { content: '# '; color: var(--op); }
 .markdown h2::before { content: '## '; color: var(--op); }
 .markdown h3::before { content: '### '; color: var(--op); }
 .markdown h4 { color: var(--text); font-weight: 500; }
+.markdown code, .markdown pre { font-size: var(--fs); }
 .markdown code { font-family: var(--font-mono); color: var(--str); background: var(--gutter-bg); padding: 0 4px; }
 .markdown pre { background: var(--gutter-bg); padding: 6px 8px; overflow-x: auto; border-left: 3px solid var(--fold); }
 .markdown pre code { padding: 0; background: none; }
@@ -798,6 +812,10 @@ input[type='range']:focus { box-shadow: none; }
 .login-dialog { width: min(380px, 100%); }
 .login-hello { display: flex; align-items: center; gap: 14px; padding-bottom: 4px; }
 .login-hello p { line-height: 20px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog, .notif-panel, .toast { animation: none; }
+}
 
 /* ── 모바일 ───────────────────────────── */
 @media (max-width: 720px) {
