@@ -3,6 +3,7 @@ import { API_URL, apiFetch, apiWsUrl } from '../lib/api';
 
 // 에이전트 모니터: 배치 작업 상태를 픽셀 오피스(pixel-agents) 캐릭터와 실시간 로그로 보여준다.
 // 실패·완료 알림은 API 가 알림함(🔔)과 웹 푸시로 보낸다.
+// 관리자와 관리자가 에이전트를 공유한 멤버만 볼 수 있다 (P-0004). 아니면 API 가 403 을 준다.
 
 interface AgentStatus {
   agentId: string;
@@ -22,6 +23,9 @@ type View = 'office' | 'log';
 
 const LOG_MAX = 50;
 const RETRY_MS = 3_000;
+/** 세션 쿠키(15분)가 끝나기 전에 다시 받는다. 공유가 꺼졌으면 이때 막힌다 */
+const SESSION_REFRESH_MS = 10 * 60_000;
+const isForbidden = (e: unknown) => e instanceof Error && e.message.startsWith('API 403');
 const ALERT_STATUSES = new Set(['ERROR', 'FAILED', 'COMPLETE']);
 
 // 픽셀 오피스 프록시 주소. 비우면 지금 접속한 호스트의 8081 포트
@@ -38,6 +42,7 @@ export function Monitor() {
   const [showLog, setShowLog] = useState(true);
   const [view, setView] = useState<View>('office');
   const [unread, setUnread] = useState(0);
+  const [forbidden, setForbidden] = useState(false);
   const viewRef = useRef(view);
   viewRef.current = view;
 
@@ -57,6 +62,7 @@ export function Monitor() {
     let ws: WebSocket | null = null;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let closed = false;
+    let forbiddenRef = false; // 공유가 꺼져 막히면 다시 연결하지 않는다
 
     async function connect() {
       setConn('connecting');
@@ -68,6 +74,11 @@ export function Monitor() {
         if (res.pixelAgentsReady) setOfficeReady(true);
       } catch (e) {
         if (closed) return;
+        if (isForbidden(e)) {
+          forbiddenRef = true;
+          setForbidden(true);
+          return;
+        }
         setError((e as Error).message);
         setConn('offline');
         retry = setTimeout(connect, RETRY_MS);
@@ -91,19 +102,39 @@ export function Monitor() {
         }
       };
       ws.onclose = () => {
-        if (closed) return;
+        if (closed || forbiddenRef) return;
         setConn('offline');
         retry = setTimeout(connect, RETRY_MS);
       };
     }
 
+    // 화면이 열려 있는 동안 세션 쿠키를 새로 받는다 (오피스 iframe 도 이 쿠키로 열린다)
+    const refresh = setInterval(() => {
+      apiFetch('/monitor/session', { method: 'POST' }).catch((e) => {
+        if (!isForbidden(e)) return;
+        forbiddenRef = true;
+        setForbidden(true);
+        ws?.close();
+      });
+    }, SESSION_REFRESH_MS);
+
     connect();
     return () => {
       closed = true;
       clearTimeout(retry);
+      clearInterval(refresh);
       ws?.close();
     };
   }, []);
+
+  if (forbidden) {
+    return (
+      <div className="doc">
+        <p className="ln comment">; 에이전트는 관리자가 공유한 멤버만 볼 수 있어요.</p>
+        <p className="ln comment">; 필요하면 관리자에게 공유를 요청해 주세요.</p>
+      </div>
+    );
+  }
 
   if (!API_URL) {
     return (

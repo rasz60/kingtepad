@@ -6,3 +6,4 @@ export * from './quickEntry';
 export * from './report';
 export * from './calendar';
 export * from './alarms';
+export * from './tester';

@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import { monitorRoutes } from './monitor';
 import { startNotifier } from './notifier';
 import { reportRoutes } from './routes/reports';
+import { testerRoutes } from './routes/tester';
 
 const app = Fastify({ logger: true });
 
@@ -16,6 +17,7 @@ await app.register(cors, {
 app.get('/health', async () => ({ ok: true }));
 const notifier = startNotifier(app.log);
 await app.register(reportRoutes);
+await app.register(testerRoutes);
 await app.register(monitorRoutes, { notifier });
 
 // TODO(3단계): 퇴근 전 일지 리마인더, 월간 보고서, AI 요약

@@ -9,6 +9,8 @@ declare module 'fastify' {
   interface FastifyRequest {
     db: SupabaseClient;
     userId: string;
+    /** 로그인한 사용자의 app_metadata (role · agent_share). getUser 로 새로 받아 오므로 최신 값이다 */
+    appMeta: Record<string, unknown>;
   }
 }
 
@@ -30,4 +32,5 @@ export async function requireUser(req: FastifyRequest, reply: FastifyReply) {
 
   req.db = db;
   req.userId = data.user.id;
+  req.appMeta = data.user.app_metadata ?? {};
 }

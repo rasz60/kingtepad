@@ -7,7 +7,6 @@ import { LogForm } from './LogForm';
 import { NotificationCenter } from './Notifications';
 import { Pixel, type PixelName } from './Pixel';
 import { TaskForm } from './TaskForm';
-import { supabase } from '../lib/supabase';
 
 // short = 모바일 하단 탭에 아이콘과 함께 보이는 이름
 interface Tab {
@@ -94,7 +93,8 @@ export function Layout() {
         <span className="win-buttons" aria-hidden>
           <i>_</i>
           <i>□</i>
-          <i className="x" onClick={() => supabase.auth.signOut()}>×</i>
+          {/* 로그아웃은 포털이 한다: 테스터 계정이면 테스터 데이터를 지운 뒤 로그아웃 (P-0004) */}
+          <i className="x" onClick={() => window.location.assign('/login?logout=1')}>×</i>
         </span>
       </header>
 

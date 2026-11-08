@@ -1,5 +1,5 @@
 // Supabase 데이터 접근. RLS 가 user_id 를 강제하므로 여기서는 user_id 를 다루지 않는다.
-import { collectNotifications, todayKst } from '@kingtepad/shared';
+import { collectNotifications, dbErrorText, todayKst } from '@kingtepad/shared';
 import type {
   AppNotification,
   CalendarEvent,
@@ -14,8 +14,9 @@ import type {
 } from '@kingtepad/shared';
 import { supabase } from './supabase';
 
-function must<T>({ data, error }: { data: T | null; error: { message: string } | null }): T {
-  if (error) throw new Error(error.message);
+// 테스터 계정(P-0004)이 기본 데이터를 고치면 DB 가 AE401 을 낸다 → "기본 데이터는 테스터가 바꿀 수 없어요"
+function must<T>({ data, error }: { data: T | null; error: { message: string; code?: string } | null }): T {
+  if (error) throw new Error(dbErrorText(error));
   return data as T;
 }
 

@@ -18,7 +18,9 @@ export function AgentTokenSetting() {
       const res = (await (await apiFetch('/monitor/token')).json()) as { token: string };
       setToken(res.token);
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      // 관리자가 에이전트를 공유하지 않은 계정 · 테스터 계정 (P-0004)
+      setError(msg.startsWith('API 403') ? '에이전트는 관리자가 공유한 멤버만 쓸 수 있어요' : msg);
     }
   }
 

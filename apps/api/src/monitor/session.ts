@@ -6,7 +6,8 @@ import crypto from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 
 export const COOKIE_NAME = 'kt_monitor';
-const MAX_AGE_SEC = 12 * 60 * 60;
+// 에이전트 공유를 끄면 늦어도 이 시간 안에 막히도록 짧게 둔다 (P-0004). 화면이 열려 있는 동안 10분마다 다시 받는다
+const MAX_AGE_SEC = 15 * 60;
 
 // 비우면 프로세스마다 새로 만든다 (재시작하면 세션이 끊기지만 탭을 열 때 다시 발급된다)
 const secret = process.env.MONITOR_SESSION_SECRET || crypto.randomBytes(32).toString('hex');

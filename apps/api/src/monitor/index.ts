@@ -5,11 +5,14 @@
 //   GET  /monitor/token    내 잡 토큰 (Supabase 로그인)
 //   픽셀 오피스 화면은 별도 포트의 프록시(officeProxy)로 연다.
 //
-// 계정별 분리: 로그와 알림은 잡을 등록한 계정에만 간다. 픽셀 오피스는 모두가 같이 본다.
+// 볼 수 있는 계정 (P-0004): 관리자와, 관리자가 에이전트를 공유한 멤버(app_metadata.agent_share). 테스터는 못 본다.
+//   세션 · 잡 토큰 발급 때 확인하고, 세션 쿠키는 15분이라 공유를 끄면 늦어도 15분 뒤 막힌다.
+// 계정별 분리: 로그와 알림은 잡을 등록한 계정에만 간다. 픽셀 오피스는 볼 수 있는 계정끼리 같이 본다.
 //   - 계정 잡 토큰(kt1.…)으로 보낸 상태 → 그 계정
 //   - 공용 토큰(MONITOR_INGEST_TOKEN) 또는 같은 서버에서 토큰 없이 보낸 상태 → 기본 소유자
 //     (MONITOR_OWNER_USER_ID, 없으면 가장 먼저 가입한 계정. 그것도 모르면 모두에게 보임)
 import crypto from 'node:crypto';
+import { canUseAgent } from '@kingtepad/shared';
 import websocket from '@fastify/websocket';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
@@ -161,7 +164,11 @@ export async function monitorRoutes(app: FastifyInstance, opts: { notifier: Noti
     },
   );
 
+  /** 에이전트를 볼 수 없는 계정이면 403 */
+  const agentForbidden = { error: 'agent_forbidden', message: '에이전트는 관리자가 공유한 멤버만 볼 수 있어요' };
+
   app.post('/monitor/session', { preHandler: requireUser }, async (req, reply) => {
+    if (!canUseAgent(req.appMeta)) return reply.code(403).send(agentForbidden);
     reply.header('set-cookie', sessionCookie(req.userId, isHttps(req)));
     return { ok: true, pixelAgentsReady: isPixelAgentsReady() };
   });
@@ -172,7 +179,10 @@ export async function monitorRoutes(app: FastifyInstance, opts: { notifier: Noti
   });
 
   // 내 잡 토큰. 잡의 jobs/.env MONITOR_INGEST_TOKEN 에 넣으면 그 잡의 로그·알림이 내 계정으로 온다
-  app.get('/monitor/token', { preHandler: requireUser }, async (req) => ({ token: createIngestToken(req.userId) }));
+  app.get('/monitor/token', { preHandler: requireUser }, async (req, reply) => {
+    if (!canUseAgent(req.appMeta)) return reply.code(403).send(agentForbidden);
+    return { token: createIngestToken(req.userId) };
+  });
 
   app.get(
     '/monitor/ws',

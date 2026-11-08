@@ -91,7 +91,7 @@ export function Settings() {
       <p className="ln">&nbsp;</p>
       <p className="ln ini-section">[에이전트]</p>
       <p className="ln comment">; 배치 잡의 jobs/.env 에 아래 두 값을 넣으면 그 잡의 로그·알림이 이 계정으로 와요</p>
-      <p className="ln comment">; (토큰은 비밀번호처럼 다뤄 주세요. 픽셀 오피스는 모든 계정이 같이 봐요)</p>
+      <p className="ln comment">; (토큰은 비밀번호처럼 다뤄 주세요. 픽셀 오피스는 에이전트를 공유받은 계정끼리 같이 봐요)</p>
       <div className="ln ini-row">
         <span className="type ini-key">MONITOR_STATUS_URL</span>
         <span className="op">=</span>

@@ -12,7 +12,8 @@ supabase/        DB 마이그레이션
 
 ## 1. Supabase 준비
 
-1. 프로젝트 생성 후 **SQL Editor**에서 `supabase/migrations/` 의 SQL을 파일명 순서대로 실행 (`init` → `events` → `alarms` → `agent_notifications`)
+1. 프로젝트 생성 후 **SQL Editor**에서 `supabase/migrations/` 의 SQL을 파일명 순서대로 실행 (`init` → `events` → `alarms` → `agent_notifications` → `tester`)
+   - `tester`(공용 테스터 계정의 기본 데이터 잠금 · 정리)는 먼저 **Database → Extensions 에서 `pg_cron`** 을 켠다
 2. **Authentication → Users → Add user**로 본인 계정 생성 (기본 카테고리 11개 자동 생성)
 3. **Authentication → Sign In / Providers → Allow new users to sign up 끄기** (1인용)
 4. **Settings → API**에서 URL과 `anon` 키 복사
@@ -87,7 +88,8 @@ jobs/*.py (pm2) ──POST http://127.0.0.1:8080/monitor/status
 - 상태 보내기: `POST /monitor/status` `{ "agentId": "worker1", "status": "WORKING", "message": "..." }`
   - `WORKING`/`RUNNING`/`ACTIVE` 작업 중 · `WAITING`/`PENDING`/`QUEUED` 대기 · `ERROR`/`FAILED` 실패 · `COMPLETE`/`DONE`/`IDLE` 등 쉬는 중
   - `MONITOR_INGEST_TOKEN` 을 설정했으면 `X-Monitor-Token` 헤더 필수. 비웠으면 같은 서버(127.0.0.1)에서 직접 보낸 요청만 받는다
-- **계정별 분리**: 업무·일지·일정·카테고리·알림은 DB(RLS)에서 계정별로 저장된다. 에이전트 모니터는 **로그·알림만 계정별, 픽셀 오피스는 공용**
+- **볼 수 있는 계정**: 관리자와, 포털 계정 관리에서 **에이전트 공유**를 켠 멤버만. 그 밖의 계정 · 테스터 계정은 안내 화면이 뜬다 (세션 쿠키 15분이라 공유를 끄면 늦어도 15분 안에 막힌다)
+- **계정별 분리**: 업무·일지·일정·카테고리·알림은 DB(RLS)에서 계정별로 저장된다. 에이전트 모니터는 **로그·알림만 계정별, 픽셀 오피스는 볼 수 있는 계정끼리 공용**
   - 계정 잡 토큰: 설정.ini **[에이전트]** 에서 확인 → 그 잡의 `jobs/.env` 에 `MONITOR_INGEST_TOKEN=<토큰>`, `MONITOR_STATUS_URL=https://<도메인>/api/monitor/status`
     (토큰 = `kt1.<사용자 id>.<서명>`, DB 에 저장하지 않는다. 서명 키는 `MONITOR_TOKEN_SECRET` 또는 서버의 `~/.kingtepad/monitor-token-secret`. 이 파일을 지우면 모든 계정 토큰이 폐기된다)
   - 공용 토큰(`apps/api/.env` 의 `MONITOR_INGEST_TOKEN`)이나 같은 서버에서 토큰 없이 보낸 잡은 **기본 소유자** 것: `MONITOR_OWNER_USER_ID`, 없으면 가장 먼저 가입한 계정(`SUPABASE_SERVICE_ROLE_KEY` 필요). 둘 다 없으면 모든 계정에 보인다
@@ -122,6 +124,7 @@ jobs/*.py (pm2) ──POST http://127.0.0.1:8080/monitor/status
 | 삭제 | 휴지통(soft delete) → 복원 또는 영구 삭제 |
 | 빠른 입력 | `#카테고리 내용 1h30m 60%`. 업무를 고르지 않고 `#카테고리`를 쓰면 당일 업무를 만들고 일지까지 기록 |
 | 알림 | 일정·업무 알람(시작 n분/시간/일 전, 시간 없으면 09:00 기준) + 매일 09시 지연 업무·내일 마감 업무. 웹은 🔔 패널과 토스트, 모바일은 웹 푸시 배너와 앱 아이콘 숫자 |
+| 테스터 계정 | 포털 '테스터로 입장하기'로 들어온 계정은 관리자가 잠근 기본 데이터를 바꿀 수 없고, 새로 만든 데이터는 로그아웃 · 매일 새벽 4시에 지워진다 (DB 트리거) |
 | 캘린더 | 업무 예정 기간 + 일정(개인/업무, 종일 또는 시간 지정) + 날짜별 일지 투입 시간. 월/주/일 보기(일요일 시작), 업무 예정·개인·업무 일정 필터 |
 
 ## 로드맵
