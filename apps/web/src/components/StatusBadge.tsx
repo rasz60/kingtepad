@@ -1,20 +1,19 @@
 import { STATUS_LABEL, type TaskStatus } from '@kingtepad/shared';
+import { Pixel, type PixelName } from './Pixel';
 
-/** 상태 아이콘. 별도 폰트 없이 iOS·Android·Windows 기본 이모지로 표시된다 */
-export const STATUS_ICON: Record<TaskStatus, string> = {
-  planned: '⏳',
-  in_progress: '▶️',
-  delayed: '🚨',
-  done: '✅',
-  deleted: '🗑️',
+/** 상태 아이콘. 이모지는 기기마다 모양이 달라서 앱의 픽셀 아이콘을 쓴다 */
+export const STATUS_ICON: Record<TaskStatus, PixelName> = {
+  planned: 'calendar',
+  in_progress: 'pencil',
+  delayed: 'bell',
+  done: 'check',
+  deleted: 'trash',
 };
 
 export function StatusBadge({ status }: { status: TaskStatus }) {
   return (
     <span className={`badge badge-${status}`}>
-      <span className="badge-icon" aria-hidden>
-        {STATUS_ICON[status]}
-      </span>
+      <Pixel name={STATUS_ICON[status]} scale={1} className="badge-icon" />
       {STATUS_LABEL[status]}
     </span>
   );

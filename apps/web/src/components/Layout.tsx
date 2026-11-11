@@ -93,12 +93,14 @@ export function Layout() {
         <span className="win-buttons" aria-hidden>
           <i>_</i>
           <i>□</i>
-          {/* 로그아웃은 포털이 한다: 테스터 계정이면 테스터 데이터를 지운 뒤 로그아웃 (P-0004) */}
-          <i className="x" onClick={() => window.location.assign('/login?logout=1')}>×</i>
         </span>
+        {/* 로그아웃은 포털이 한다: 테스터 계정이면 테스터 데이터를 지운 뒤 로그아웃 (P-0004) */}
+        <button type="button" className="win-close" onClick={() => window.location.assign('/login?logout=1')} aria-label="로그아웃" title="로그아웃">
+          ×
+        </button>
       </header>
 
-      <div className="toolbar">
+      <div className="toolbar" role="toolbar" aria-label="도구">
         {/* ae:p 앱 전환 버튼 (포털의 /shell/switcher.js 가 그린다) */}
         <aep-switcher mode="inline" className="tool-switcher" />
         {/* 모바일 전용: 타이틀바 대신 거북이 + 지금 파일 이름 */}
@@ -130,7 +132,7 @@ export function Layout() {
       </div>
 
       {!agent && (
-        <nav className="tabs">
+        <nav className="tabs" aria-label="화면 이동">
           {/* 포털 홈 (다른 빌드라 라우터 링크가 아니라 페이지 이동) */}
           <a href="/" className="tab tab-back" aria-label="ae:p 홈">
             <Pixel name="home" scale={1.2} />
