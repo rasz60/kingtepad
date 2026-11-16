@@ -221,6 +221,14 @@ button:disabled { opacity: .45; cursor: default; }
    알림 패널(40)보다 위 · 대화상자(50)보다 아래 층에 둔다 */
 .tool-switcher {
   --aep-switcher-size: 28px;
+  /* 스위처 모양을 툴바 버튼(.tool) · Notepad++ 메뉴와 같게: 평평한 버튼, 하늘색 hover, 회색 1px 메뉴 */
+  --aep-btn-bg: transparent; --aep-btn-border: transparent; --aep-btn-bw: 1px; --aep-btn-shadow: none;
+  --aep-btn-hover-bg: var(--hover); --aep-btn-hover-border: var(--hover-border);
+  --aep-panel-bg: var(--chrome); --aep-panel-fg: var(--text);
+  --aep-panel-border: 1px solid var(--chrome-border); --aep-panel-shadow: 2px 2px 4px rgba(0, 0, 0, .28);
+  --aep-divider: var(--chrome-border); --aep-muted: var(--muted); --aep-danger: var(--danger);
+  --aep-row-h: 30px; --aep-row-hover: var(--hover); --aep-row-hover-border: var(--hover-border);
+  --aep-row-current: var(--chrome-2); --aep-focus: var(--focus); --aep-press: 1px;
   position: relative; z-index: 45;
   display: inline-flex; align-items: center; flex: none;
   min-width: var(--aep-switcher-size); height: var(--aep-switcher-size); margin-right: 4px;
@@ -851,7 +859,7 @@ input[type='range']:focus { box-shadow: none; }
     padding: env(safe-area-inset-top) 4px 0 10px;
     background: var(--title-bg);
   }
-  .tool-switcher { --aep-switcher-size: 34px; }
+  .tool-switcher { --aep-switcher-size: 34px; --aep-row-h: 44px; }
   .tool-brand { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
   .tool-brand-text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 15px / 20px var(--font-big); }
   .tool { height: 36px; padding: 0 10px; }
