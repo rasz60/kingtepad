@@ -713,6 +713,7 @@ input[type='range']:focus { box-shadow: none; }
 /* ── 알림 (🔔 · 패널 · 토스트) ────────── */
 .notif { position: relative; margin-left: 2px; }
 .tool-date + .notif { margin-left: 0; }
+.toolbar > :not(.tool-date) + .notif { margin-left: auto; } /* 에이전트 화면: 날짜 없이 우측 끝 */
 .notif-bell { position: relative; }
 .notif-bell .notif-count { /* 모바일의 .tool span { display: none } 보다 우선 */
   display: block;

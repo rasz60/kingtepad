@@ -52,14 +52,15 @@ export function Layout() {
   const [dock, setDock] = useState<HTMLDivElement | null>(null);
 
   // 상태 표시줄: 오늘 투입 시간
-  const todayLogs = useAsync(() => listLogs({ from: today, to: today }), [today]);
+  // 에이전트 화면은 업무일지 데이터를 불러오지 않는다
+  const tab = [...TABS, MONITOR].find((t) => isUnder(location.pathname, t.to)) ?? TABS[0]!;
+  const agent = tab === MONITOR;
+  const todayLogs = useAsync(async () => (agent ? [] : listLogs({ from: today, to: today })), [today, agent]);
   const todayMinutes = (todayLogs.data ?? []).reduce((s, l) => s + l.minutes, 0);
   // 일지 작성 시 업무 선택 목록
-  const activeTasks = useAsync(async () => (await listTasks()).filter((t) => t.progress < 100), []);
+  const activeTasks = useAsync(async () => (agent ? [] : (await listTasks()).filter((t) => t.progress < 100)), [agent]);
 
-  const tab = [...TABS, MONITOR].find((t) => isUnder(location.pathname, t.to)) ?? TABS[0]!;
-  // 에이전트 모니터는 포털에서 별도 앱으로 들어온다: 업무일지 버튼·탭·상태 표시줄 없이 보여 준다
-  const agent = tab === MONITOR;
+  // 에이전트 모니터는 포털에서 별도 앱으로 들어온다: 업무일지 버튼·탭·상태 표시줄·알림 없이 보여 준다
   const appName = agent ? 'ae:p' : '업무일지++';
   const dow = DOW[new Date(`${today}T00:00:00+09:00`).getDay()];
 
@@ -123,10 +124,13 @@ export function Layout() {
             </form>
           </>
         )}
-        <span className="tool-date">
-          {today} ({dow})
-        </span>
-        <NotificationCenter />
+        {!agent && (
+          <span className="tool-date">
+            {today} ({dow})
+          </span>
+        )}
+        {/* 우측 상단 알림: 에이전트 화면에서는 에이전트 알림만 (업무일지 알림·배지 없음) */}
+        <NotificationCenter scope={agent ? 'agent' : 'diary'} />
       </div>
 
       {!agent && (

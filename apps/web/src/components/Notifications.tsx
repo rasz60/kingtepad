@@ -2,7 +2,13 @@ import type { AppNotification, NotificationKind } from '@kingtepad/shared';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../lib/AppContext';
-import { clearReadNotifications, generateNotifications, listNotifications, markNotificationsRead } from '../lib/db';
+import {
+  clearReadNotifications,
+  generateNotifications,
+  listNotifications,
+  markNotificationsRead,
+  type NotificationScope,
+} from '../lib/db';
 import { setAppBadge } from '../lib/push';
 import { useAsync } from '../lib/useAsync';
 import { Pixel } from './Pixel';
@@ -15,13 +21,14 @@ const TOASTED_KEY = 'kp:toasted';
 const KIND_LABEL: Record<NotificationKind, string> = { alarm: '알람', delayed: '지연', due_soon: '마감 임박', agent: '에이전트' };
 
 /** 알림함 데이터. 1분마다, 그리고 앱으로 돌아올 때 새 알림을 만들고 다시 불러온다 */
-function useNotifications() {
+function useNotifications(scope: NotificationScope) {
   const { holidays } = useApp();
   const list = useAsync(async () => {
+    // 업무일지 알림 생성은 업무일지 화면에서만. 에이전트 화면은 에이전트 알림만 읽는다
     // 공휴일이 아직 안 불러와졌으면 지연 판단이 틀릴 수 있어 생성은 건너뛴다 (API 스케줄러가 대신 만든다)
-    if (holidays.size > 0) await generateNotifications(holidays).catch(() => {});
-    return listNotifications();
-  }, [holidays]);
+    if (scope === 'diary' && holidays.size > 0) await generateNotifications(holidays).catch(() => {});
+    return listNotifications(scope);
+  }, [holidays, scope]);
 
   useEffect(() => {
     const id = setInterval(list.reload, POLL_MS);
@@ -38,7 +45,10 @@ function useNotifications() {
 
   const items = list.data ?? [];
   const unread = items.filter((n) => !n.read_at);
-  useEffect(() => setAppBadge(unread.length), [unread.length]);
+  // 앱 아이콘 배지는 업무일지 미확인 수만 반영한다
+  useEffect(() => {
+    if (scope === 'diary') setAppBadge(unread.length);
+  }, [scope, unread.length]);
   return { items, unread, reload: list.reload };
 }
 
@@ -50,16 +60,16 @@ function timeAgo(iso: string): string {
   return `${Math.floor(min / 1440)}일 전`;
 }
 
-/** 툴바의 🔔 버튼 + 알림 패널 + 하단 토스트 */
-export function NotificationCenter() {
+/** 툴바의 🔔 버튼 + 알림 패널 + 하단 토스트. scope='agent' 면 에이전트 알림만 다룬다 */
+export function NotificationCenter({ scope = 'diary' }: { scope?: NotificationScope }) {
   const navigate = useNavigate();
-  const { items, unread, reload } = useNotifications();
+  const { items, unread, reload } = useNotifications(scope);
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   async function openItem(n: AppNotification) {
     setOpen(false);
-    if (!n.read_at) await markNotificationsRead([n.id]);
+    if (!n.read_at) await markNotificationsRead([n.id], scope);
     reload();
     navigate(n.link);
   }
@@ -76,7 +86,7 @@ export function NotificationCenter() {
 
   return (
     <div className="notif" ref={panelRef}>
-      <button className="tool notif-bell" onClick={() => setOpen((v) => !v)} title="알림" aria-label={`알림 ${unread.length}건`} aria-expanded={open}>
+      <button className="tool notif-bell" onClick={() => setOpen((v) => !v)} title={scope === 'agent' ? '에이전트 알림' : '알림'} aria-label={`${scope === 'agent' ? '에이전트 알림' : '알림'} ${unread.length}건`} aria-expanded={open}>
         <Pixel name="bell" />
         {unread.length > 0 && <span className="notif-count">{unread.length > 99 ? '99+' : unread.length}</span>}
       </button>
@@ -86,20 +96,20 @@ export function NotificationCenter() {
           <div className="notif-head">
             <strong>알림</strong> <span className="num">({unread.length})</span>
             <span className="notif-head-actions">
-              <button className="link-btn" disabled={!unread.length} onClick={() => markNotificationsRead().then(reload)}>
+              <button className="link-btn" disabled={!unread.length} onClick={() => markNotificationsRead(undefined, scope).then(reload)}>
                 모두 읽음
               </button>
               <button
                 className="link-btn danger"
                 disabled={items.length === unread.length}
-                onClick={() => clearReadNotifications().then(reload)}
+                onClick={() => clearReadNotifications(scope).then(reload)}
               >
                 읽은 알림 지우기
               </button>
             </span>
           </div>
           <div className="notif-list">
-            {items.length === 0 && <p className="notif-empty comment">// 알림이 없어요</p>}
+            {items.length === 0 && <p className="notif-empty comment">// {scope === 'agent' ? '에이전트 알림이 없어요' : '알림이 없어요'}</p>}
             {items.map((n) => (
               <button key={n.id} className={`notif-item ${n.read_at ? 'read' : ''}`} onClick={() => openItem(n)}>
                 <span className={`notif-kind notif-${n.kind}`}>{KIND_LABEL[n.kind]}</span>
@@ -110,7 +120,9 @@ export function NotificationCenter() {
               </button>
             ))}
           </div>
-          <p className="push-hint comment">// 푸시 알림은 <a href="/">ae:p 홈</a> → 계정 메뉴에서 켜요</p>
+          {scope === 'diary' && (
+            <p className="push-hint comment">// 푸시 알림은 <a href="/">ae:p 홈</a> → 계정 메뉴에서 켜요</p>
+          )}
         </div>
       )}
 

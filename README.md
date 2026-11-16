@@ -84,7 +84,7 @@ jobs/*.py (pm2) ──POST http://127.0.0.1:8080/monitor/status
 
 - API 가 시작될 때 `npx pixel-agents` 를 자식 프로세스로 띄운다 (첫 실행은 다운로드로 1분 정도). `MONITOR_PIXEL_AGENTS=0` 이면 끈다
 - 탭을 열면 웹이 Supabase 토큰으로 `POST /monitor/session` 을 불러 세션 쿠키를 받고, 그 쿠키로 WebSocket 로그와 픽셀 오피스(`:8443`)가 열린다
-- `ERROR` · `FAILED` · `COMPLETE` 상태는 🔔 알림함에 `에이전트` 알림으로 저장되고 웹 푸시로도 간다 (`SUPABASE_SERVICE_ROLE_KEY` 필요)
+- `ERROR` · `FAILED` · `COMPLETE` 상태는 `에이전트` 알림으로 저장되어 에이전트 화면 우측 상단 🔔에만 보이고(업무일지 알림과 분리), 웹 푸시로도 간다 (`SUPABASE_SERVICE_ROLE_KEY` 필요)
 - 상태 보내기: `POST /monitor/status` `{ "agentId": "worker1", "status": "WORKING", "message": "..." }`
   - `WORKING`/`RUNNING`/`ACTIVE` 작업 중 · `WAITING`/`PENDING`/`QUEUED` 대기 · `ERROR`/`FAILED` 실패 · `COMPLETE`/`DONE`/`IDLE` 등 쉬는 중
   - `MONITOR_INGEST_TOKEN` 을 설정했으면 `X-Monitor-Token` 헤더 필수. 비웠으면 같은 서버(127.0.0.1)에서 직접 보낸 요청만 받는다

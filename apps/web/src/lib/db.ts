@@ -144,24 +144,31 @@ export async function generateNotifications(holidays: ReadonlySet<DateStr>): Pro
   must(await supabase.from('notifications').upsert(drafts, { onConflict: 'user_id,dedupe_key', ignoreDuplicates: true }));
 }
 
-export async function listNotifications(limit = 50): Promise<AppNotification[]> {
-  return must(
-    await supabase
-      .from('notifications')
-      .select('id,kind,title,body,link,dedupe_key,fire_at,read_at,created_at')
-      .order('fire_at', { ascending: false })
-      .limit(limit),
-  );
+/** 알림 범위: 'agent' = 에이전트 알림만, 'diary' = 업무일지 알림(에이전트 제외) */
+export type NotificationScope = 'diary' | 'agent';
+const AGENT_KIND = 'agent';
+
+export async function listNotifications(scope: NotificationScope = 'diary', limit = 50): Promise<AppNotification[]> {
+  const req = supabase
+    .from('notifications')
+    .select('id,kind,title,body,link,dedupe_key,fire_at,read_at,created_at')
+    .order('fire_at', { ascending: false })
+    .limit(limit);
+  return must(await (scope === 'agent' ? req.eq('kind', AGENT_KIND) : req));
 }
 
-export async function markNotificationsRead(ids?: string[]): Promise<void> {
+export async function markNotificationsRead(ids?: string[], scope: NotificationScope = 'diary'): Promise<void> {
   let req = supabase.from('notifications').update({ read_at: new Date().toISOString() }).is('read_at', null);
   if (ids) req = req.in('id', ids);
+  // 에이전트 화면에서는 업무일지 알림을 건드리지 않는다
+  if (scope === 'agent') req = req.eq('kind', AGENT_KIND);
   must(await req);
 }
 
-export async function clearReadNotifications(): Promise<void> {
-  must(await supabase.from('notifications').delete().not('read_at', 'is', null));
+export async function clearReadNotifications(scope: NotificationScope = 'diary'): Promise<void> {
+  let req = supabase.from('notifications').delete().not('read_at', 'is', null);
+  if (scope === 'agent') req = req.eq('kind', AGENT_KIND);
+  must(await req);
 }
 
 /** 진행 중인 업무의 기간 안팎 로그를 함께 보기 위해 업무를 id 목록으로 조회 */
