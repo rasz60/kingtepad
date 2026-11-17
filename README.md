@@ -6,7 +6,7 @@
 apps/web         React + Vite PWA   — CRUD는 Supabase 직접 호출 (RLS)
 apps/api         Fastify (Oracle Cloud) — 보고서·알림·에이전트 모니터 등 서버 작업
 packages/shared  상태/진척/영업일/빠른입력/보고서 로직 (web·api 공용)
-jobs/            배치 작업 (Python, pm2) — 주식 시세·나라장터 감시 → 에이전트 모니터로 상태 전송
+jobs/            배치 작업 (Python, pm2 · sh) — 주식 시세·나라장터 감시·KTX 잔여석 감시 → 에이전트 모니터로 상태 전송
 supabase/        DB 마이그레이션
 ```
 
@@ -96,11 +96,39 @@ jobs/*.py (pm2) ──POST http://127.0.0.1:8080/monitor/status
   - 계정 추가: 회원가입 화면은 없으므로 Supabase → Authentication → Users → **Add user** 로 만든다 (기본 카테고리는 자동 생성)
   - 선택 필드: `name` = 캐릭터 라벨 이름(없으면 agentId, 캐릭터를 처음 만들 때만 반영), `label` = 쉬는 상태일 때 라벨의 `Idle` 대신 보일 문구 (예: `"퇴근했습니다!😁"`)
   - 라벨은 픽셀 오피스 **Settings → Always Show Labels** 를 켜면 항상 보인다 (끄면 캐릭터를 누르거나 올렸을 때만)
-- 배치 작업: `jobs/run_stocks.py`(KIS 시세, 종목은 `jobs/stocks.json`), `jobs/watch_openg.py`(나라장터 개찰결과, 결과가 뜨면 `COMPLETE` 후 종료)
+- 배치 작업: `jobs/run_stocks.py`(KIS 시세, 종목은 `jobs/stocks.json`), `jobs/watch_openg.py`(나라장터 개찰결과, 결과가 뜨면 `COMPLETE` 후 종료), `jobs/watch_ktx.py`(KTX 잔여석, 아래)
   - 주식 잡은 장중(평일 09:00~15:30, KIS 휴장일조회로 공휴일 제외)에만 시세를 보낸다. 장이 닫히면 종가로 "장 마감"을 종목마다 한 번 보내고(IDLE, 라벨 "퇴근했습니다!😁" → 캐릭터가 돌아다님) 다음 개장까지 조용히 기다린다. 캐릭터 이름은 종목명
 - 에이전트별 마지막 상태와 최근 로그는 `~/.kingtepad/monitor-state.json` 에 저장된다. API 가 재시작(자동 배포 등)되면 이걸로 로그를 이어 보여 주고, pixel-agents 가 뜨면 캐릭터를 다시 불러온다 (7일 넘게 소식 없는 에이전트는 제외)
 - 픽셀 오피스 터치: 한 손가락 드래그 = 화면 이동, 두 손가락 핀치 = 줌 (오피스 프록시가 pixel-agents 화면에 터치 스크립트를 끼워 넣는다)
 - 로컬 개발: `npm run dev:api` 후 `apps/web/.env` 에 `VITE_API_URL=http://localhost:8080` (오피스는 `http://localhost:8081`)
+
+### KTX 잔여석 감시 + 카카오톡 알림
+
+지정한 KTX 열차의 일반실을 1분마다 조회해서, **매진 → 예약 가능**, **예약 가능 → 다시 매진**으로 바뀔 때마다 카카오톡 **나에게 보내기**로 알린다.
+자리를 찾아도 멈추지 않고 계속 감시한다(열차 출발 시각이 지나면 스스로 끝난다). 에이전트 모니터에는 `KTX <열차번호> 감시` 캐릭터로 보이고, 예약 가능이면 `COMPLETE`(🔔 · 웹 푸시)가 간다.
+
+- 조건: `jobs/.env` 의 `KTX_DEP` · `KTX_ARR` · `KTX_DATE` · `KTX_TIME` · `KTX_TRAIN_NO` · `KTX_ADULTS` · `KTX_INTERVAL` (비우면 코드 기본값, CLI 옵션이 우선)
+- 조회는 코레일 모바일 앱이 쓰는 비공식 엔드포인트를 부른다 (공식 공개 API 없음). 엔드포인트가 바뀌면 동작하지 않을 수 있다
+- 같은 상태가 이어지면 다시 알리지 않는다. 마지막 판정은 `jobs/watch_ktx_state_<날짜>_<열차>.json` 에 있다 (지우면 처음부터 판정)
+- pm2 에 넣지 않는다. 서버에서 sh 로 띄운다 (자동 배포로 코드가 바뀌면 `restart` 해야 반영)
+  ```bash
+  bash scripts/ktx-watch.sh start        # 백그라운드 시작 (옵션 예: --train-no 466 --date 20261127)
+  bash scripts/ktx-watch.sh status       # 실행 여부 + 최근 로그
+  bash scripts/ktx-watch.sh log          # 로그 보기 (jobs/watch_ktx.log)
+  bash scripts/ktx-watch.sh once         # 1회만 조회
+  bash scripts/ktx-watch.sh test-notify  # 카카오톡 발송 테스트
+  bash scripts/ktx-watch.sh stop
+  ```
+
+**카카오톡 알림 준비 (최초 1회)**
+1. [Kakao Developers](https://developers.kakao.com) → 내 애플리케이션 → 앱 추가
+2. 앱 키의 **REST API 키**를 `jobs/.env` 의 `KAKAO_REST_API_KEY` 에 넣는다 (Client Secret 을 켰으면 `KAKAO_CLIENT_SECRET` 도)
+3. **카카오 로그인** 활성화 → Redirect URI 에 `KAKAO_REDIRECT_URI` 값(기본 `http://localhost:8765/kakao`) 등록
+4. **동의항목**에서 `카카오톡 메시지 전송(talk_message)` 설정
+5. **플랫폼 → Web 사이트 도메인**에 `KAKAO_LINK_URL` 의 도메인(기본 `https://ae2p.duckdns.org`) 등록 (메시지 버튼이 여는 주소)
+6. 서버에서 `./venv/bin/python3 jobs/kakao_auth.py` → 출력된 주소를 브라우저로 열어 동의 → 이동한 주소(연결할 수 없음 화면이어도 됨)를 통째로 붙여 넣기
+   → `jobs/.kakao_token.json` 생성 (커밋 금지). 이후 액세스 토큰 갱신은 자동이고, 리프레시 토큰이 만료되면 6을 다시 한다
+7. `bash scripts/ktx-watch.sh test-notify` 로 카카오톡 '나와의 채팅'에 메시지가 오는지 확인
 
 ### 알림 · 웹 푸시
 

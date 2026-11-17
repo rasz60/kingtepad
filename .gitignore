@@ -12,3 +12,7 @@ venv/
 jobs/.kis_token_cache.json
 jobs/watch_state*.json
 jobs/openg_result_*.json
+jobs/.kakao_token.json
+jobs/watch_ktx_state_*.json*
+jobs/watch_ktx.pid
+jobs/watch_ktx.out
